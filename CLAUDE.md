@@ -2,8 +2,8 @@
 
 Client-only top-down browser game for a 6-year-old, set in Latvia. Lāčplēsis travels between small
 places picked on a map of Latvia, beats monsters whose number is smaller than his, and beats each
-place's boss to open the next ones. All in-game text is in Latvian. `spec.md` is the full design and
-`README.md` covers how it plays and how to run it.
+place's boss to open the next ones. In-game text is Latvian, with an English translation (see
+Language). `spec.md` is the full design and `README.md` covers how it plays and how to run it.
 
 ## Layout
 
@@ -46,6 +46,11 @@ bosses, terrain or movement, run:
   `drawWorld()`. Changing the ground of a place after it is built needs `clearGroundTiles()`.
 - The map screen draws `ovCanvas`, built once from the `LV_LL`, `NEIGH_LL`, `RIVERS_LL`, `LAKES_LL`
   and `REGION_GRID` data, which `tools/make_geo.py` generates. River widths are set by hand.
+- Language: every shown text goes through `tr()`, which looks the Latvian text up in the `EN`
+  table when English is picked (a missing entry shows as it is, so proper names need none); `{n}`
+  in a text is filled from its args. A new text needs its `EN` entry. The choice is kept under
+  `localStorage` key `lacplesis-lang`, or set with `?lang=`; `setLang()` rebuilds `ovCanvas` and
+  the ground tiles, which hold drawn text.
 - Save: `localStorage` key `lacplesis-v4`: strength, current place, beaten bosses, opened chests, and
   each Jods's head numbers from the first visit (`jods`; older saves without it just start empty).
   Changing its shape needs handling in `loadSave()` or a new key.
@@ -60,7 +65,8 @@ bosses, terrain or movement, run:
   point at a time. The user asked for this pace, so don't speed it back up.
 - Tap pathfinding only takes short detours, so the forest mazes still have to be explored.
 - Trees are drawn taller than their cell, so a tap on a treetop counts as the trunk below.
-- Text is short, in Latvian, and comes with an icon, because the player reads slowly.
+- Text is short, written in Latvian (with its `EN` entry), and comes with an icon, because the
+  player reads slowly.
 
 ## Coding practices
 

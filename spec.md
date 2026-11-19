@@ -9,7 +9,7 @@ The game has no death, no game over and no timer. If an enemy is too strong, Lā
 ## Tech
 
 - Browser, client-only JavaScript, one canvas, no dependencies or build step. Same setup as `heart_ball`: `index.html` and `game.js`, with all art drawn using canvas calls.
-- Game name: **Lāčplēsis**. All in-game text is in Latvian. Text is kept short and always comes with an icon, because the player may read slowly (but can read and should be encouraged to occasionally do so). Text stays up long enough to read: banners, speech bubbles and words that float up ("Atrodi ieroci!") all show for 8 s, while plain numbers flash by in about 1 s. After a golden chest opens new places, the map opens 2 s later, so it's clearly the reward for that fight.
+- Game name: **Lāčplēsis**. All in-game text is in Latvian, with an English translation picked by an LV / EN switch in the title screen's corner (remembered; Latvian is the default; in English the hero is called Bearslayer and proper names such as Daugava, Kurbads or Jods stay Latvian). Text is kept short and always comes with an icon, because the player may read slowly (but can read and should be encouraged to occasionally do so). Text stays up long enough to read: banners, speech bubbles and words that float up ("Atrodi ieroci!") all show for 8 s, while plain numbers flash by in about 1 s. After a golden chest opens new places, the map opens 2 s later, so it's clearly the reward for that fight.
 - Progress (strength, beaten bosses, opened golden chests and the current location) is saved in `localStorage` automatically, so a child can close the tab and keep going later.
 
 ## Core mechanic: strength numbers

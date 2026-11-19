@@ -47,6 +47,96 @@ function weighted(list) {
   return list[list.length - 1];
 }
 
+// ---------- Language ----------
+// The game is written in Latvian, and every text shown goes through tr(), which looks the Latvian
+// text up in the English table when English is chosen. A text missing from the table (a proper
+// name such as Daugava or Kurbads) is shown as it is. {n} in a text is filled from `args`.
+// The language is picked on the title screen and remembered; ?lang=en or ?lang=lv in the address
+// sets it too.
+const LANG_KEY = 'lacplesis-lang';
+const LANGS = ['lv', 'en'];
+const EN = {
+  // title, screens and buttons
+  'LĀČPLĒSIS': 'BEARSLAYER', 'Lāčplēsis': 'Bearslayer', 'No sākuma': 'New game', 'Pauze': 'Paused',
+  'Karte': 'Map', 'Latvija': 'Latvia', 'Peldēt?': 'Swim?', 'Dedzināt mežu?': 'Burn the forest?',
+  'Sākt no jauna?': 'Start again?', 'Ūdenī spēks ātri krīt': 'Strength drops fast in water',
+  'Viss sāksies no paša sākuma': 'Everything starts from the very beginning',
+  'Spēks samazināsies par {n}': 'Strength goes down by {n}', 'Spēks mazliet samazināsies': 'Strength goes down a little',
+  'Spēks −{n}': 'Strength −{n}', 'Spēks mazliet kritīs': 'Strength drops a little',
+  // map of Latvia
+  'IGAUNIJA': 'ESTONIA', 'KRIEVIJA': 'RUSSIA', 'BALTKRIEVIJA': 'BELARUS', 'LIETUVA': 'LITHUANIA',
+  'Baltijas': 'Baltic', 'jūra': 'Sea', 'Rīgas jūras līcis': 'Gulf of Riga', 'Rīga': 'Riga',
+  'Vispirms uzvari: {n}': 'First win: {n}', ' vai ': ' or ', 'Tu esi šeit': 'You are here',
+  'Te tu jau uzvarēji': 'You already won here', 'Doties ceļā!': 'Set off!',
+  // weapons, gear and helpers
+  'Zobens': 'Sword', 'Spēks ×1,5': 'Strength ×1.5', 'Dzelzs vāle': 'Iron club', 'Spēks ×2': 'Strength ×2',
+  'Vairogs': 'Shield', 'Stiprie tevi neatgrūž': 'Strong ones can\'t push you back',
+  'Septiņjūdžu zābaki': 'Seven-league boots', 'Ātri, ātri!': 'Fast, fast!',
+  'Spīdolas slota': 'Spīdola\'s broom', 'Lido pāri mežam un ūdenim': 'Fly over forest and water',
+  'Pērkona cirvis': 'Pērkons\'s axe', 'Zibens trāpa vājākajiem': 'Lightning strikes weaker ones',
+  'Ķivere': 'Helmet', 'Spēks ×1,25': 'Strength ×1.25', 'Bruņas': 'Chain mail',
+  'Spēks nekrītas, bet peldēt ir grūtāk': 'Strength stays, but swimming is harder',
+  'Viņa spēks nāk klāt tavējam': 'His strength adds to yours', 'Atrod tev ieročus': 'Finds weapons for you',
+  'Spēks nekrīt, rāda ceļu uz lādēm': 'Strength stays, shows the way to chests',
+  '{n} nāk palīgā!': '{n} comes to help!',
+  'Miega stabule': 'Sleepy flute', 'Ienaidnieki snauž un ir vājāki!': 'Enemies doze and get weaker!',
+  'Tuvumā neviena nav...': 'Nobody is near...',
+  // bosses and chests
+  'Atrodi ieroci!': 'Find a weapon!', 'Ātrāk, galvas atjēdzas!': 'Hurry, the heads wake up!',
+  'Galva atjēdzās!': 'A head woke up!', 'Trīsgalvainais Jods': 'Three-headed Jods',
+  'Sešgalvainais Jods': 'Six-headed Jods', 'Deviņgalvainais Jods': 'Nine-headed Jods',
+  'Lācis uzvarēts!': 'Bear beaten!', '{n} uzvarēts!': '{n} beaten!', 'Ragana uzvarēta!': 'Witch beaten!',
+  'Vadonis uzvarēts!': 'Chief beaten!', 'Atver zelta lādi!': 'Open the golden chest!',
+  'Paldies, ka spēlēji!': 'Thanks for playing!', 'Rīga un Melnais bruņinieks — drīzumā!': 'Riga and the Black Knight — coming soon!',
+  'Jaunas vietas kartē!': 'New places on the map!', 'Jauna vieta kartē!': 'A new place on the map!',
+  'Vieta uzvarēta!': 'Place won!', 'Karte rāda, kur doties tālāk': 'The map shows where to go next',
+  // moving about
+  'Peldi uz krastu!': 'Swim to the shore!', 'Ūdenī spēks krīt': 'Strength drops in water',
+  'Mežs nodega': 'The forest burned', 'Tā tu tiki ārā': 'That\'s how you got out', 'Purvs! Lēni...': 'Bog! Slow...',
+  'Šis mežs par biezu!': 'This forest is too thick!', 'Avotiņš': 'The spring', 'Spēks atkal pilns!': 'Strength full again!',
+  // people
+  'Sveiks, Lāčplēsi!': 'Hello, Bearslayer!', 'Še, ņem!': 'Here, take it!', 'Lai tev veicas!': 'Good luck!',
+  'Labdien, varoni!': 'Good day, hero!', 'Tas tev!': 'This is for you!',
+  // places
+  'Lielvārdes pļavas': 'Lielvārde Meadows', 'Zilie kalni': 'Blue Hills', 'Kokneses pilsdrupas': 'Koknese Castle Ruins',
+  'Turaidas pils': 'Turaida Castle', 'Cēsu pils': 'Cēsis Castle', 'Vecpiebalgas ezeri': 'Vecpiebalga Lakes',
+  'Burtnieku ezers': 'Lake Burtnieks', 'Rundāles dārzs': 'Rundāle Garden', 'Tērvetes mežs': 'Tērvete Forest',
+  'Tērvetes pilskalns': 'Tērvete Hillfort', 'Ventas rumba': 'Venta Waterfall', 'Liepājas kanāls': 'Liepāja Canal',
+  'Jūrkalnes krasts': 'Jūrkalne Coast', 'Kolkasrags': 'Cape Kolka', 'Krāslavas tilts': 'Krāslava Bridge',
+  'Rāznas ezers': 'Lake Rāzna', 'Lubāna klāni': 'Lubāns Wetlands',
+  'Ogres novads': 'Ogre Municipality', 'Aizkraukles novads': 'Aizkraukle Municipality',
+  'Siguldas novads': 'Sigulda Municipality', 'Cēsu novads': 'Cēsis Municipality', 'Madonas novads': 'Madona Municipality',
+  'Valmieras novads': 'Valmiera Municipality', 'Bauskas novads': 'Bauska Municipality',
+  'Dobeles novads': 'Dobele Municipality', 'Kuldīgas novads': 'Kuldīga Municipality', 'Liepājas valstspilsēta': 'Liepāja City',
+  'Ventspils novads': 'Ventspils Municipality', 'Talsu novads': 'Talsi Municipality',
+  'Krāslavas novads': 'Krāslava Municipality', 'Rēzeknes novads': 'Rēzekne Municipality',
+  // water
+  'Pils dīķis': 'Castle Pond', 'Liepājas ezers': 'Lake Liepāja', 'Kanāls': 'Canal', 'Nagļu dīķi': 'Nagļi Ponds',
+};
+function loadLang() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('lang');
+    if (LANGS.includes(q)) return q;
+  } catch (e) { /* no address */ }
+  try { const s = localStorage.getItem(LANG_KEY); if (LANGS.includes(s)) return s; } catch (e) { /* no storage */ }
+  return 'lv';
+}
+let LANG = loadLang();
+function tr(s, args) {
+  let out = LANG === 'en' && s in EN ? EN[s] : s;
+  if (args) for (const k in args) out = out.replace('{' + k + '}', args[k]);
+  return out;
+}
+// Switching redraws everything that holds text drawn once: the map of Latvia and the ground tiles
+// (water names).
+function setLang(l) {
+  LANG = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* storage unavailable */ }
+  try { document.documentElement.lang = l; document.title = tr('Lāčplēsis'); } catch (e) { /* no document */ }
+  if (ovCanvas) buildOverview();
+  clearGroundTiles();
+}
+
 // ---------- Latvia overview map ----------
 // Longitude/latitude to overview-map units (equirectangular, squashed by cos(57°)).
 const K = 1500, LON0 = 20.9, LAT0 = 58.15, COSLAT = 0.545, OFF = 300;
@@ -309,10 +399,10 @@ function buildOverview() {
     c.strokeStyle = '#eadcaa'; c.lineWidth = 6; c.stroke();
   }
   for (const [name, lon, lat] of [['IGAUNIJA', 25.9, 58.2], ['KRIEVIJA', 28.45, 56.95], ['BALTKRIEVIJA', 27.6, 55.62],
-    ['LIETUVA', 23.6, 55.85]]) text(P(lon, lat), name, 90, 'rgba(120,108,80,0.4)');
-  text(P(20.62, 56.85), 'Baltijas', 70, 'rgba(255,255,255,0.5)');
-  text(P(20.62, 56.72), 'jūra', 70, 'rgba(255,255,255,0.5)');
-  text(P(23.6, 57.62), 'Rīgas jūras līcis', 70, 'rgba(255,255,255,0.5)');
+    ['LIETUVA', 23.6, 55.85]]) text(P(lon, lat), tr(name), 90, 'rgba(120,108,80,0.4)');
+  text(P(20.62, 56.85), tr('Baltijas'), 70, 'rgba(255,255,255,0.5)');
+  text(P(20.62, 56.72), tr('jūra'), 70, 'rgba(255,255,255,0.5)');
+  text(P(23.6, 57.62), tr('Rīgas jūras līcis'), 70, 'rgba(255,255,255,0.5)');
   // region colours from the grid, stretched smooth and clipped to Latvia
   const G = REGION_GRID, rows = G.rows.length;
   const rc = document.createElement('canvas');
@@ -345,7 +435,7 @@ function buildOverview() {
     path(p); c.strokeStyle = '#3d7fb8'; c.lineWidth = r.w * 2 + 8; c.stroke();
     path(p); c.strokeStyle = '#5aa3e0'; c.lineWidth = r.w * 2; c.stroke();
   }
-  for (const R of REGIONS) if (R !== REGIONS[RIG]) text(P(...R.label), R.name.toUpperCase(), 130, 'rgba(255,255,255,0.3)');
+  for (const R of REGIONS) if (R !== REGIONS[RIG]) text(P(...R.label), tr(R.name).toUpperCase(), 130, 'rgba(255,255,255,0.3)');
 
   glowBlue = makeGlow('80,180,255');
   glowGold = makeGlow('255,205,60');
@@ -1126,7 +1216,7 @@ const FX_INFO = {
   broom: { name: 'Spīdolas slota', sub: 'Lido pāri mežam un ūdenim', dur: 12 },
   axe: { name: 'Pērkona cirvis', sub: 'Zibens trāpa vājākajiem', dur: 20 },
   helmet: { name: 'Ķivere', sub: 'Spēks ×1,25', dur: 25 },
-  armor: { name: 'Bruņas', sub: 'Spēks nekrīt, bet ūdenī smagi', dur: 25 },
+  armor: { name: 'Bruņas', sub: 'Spēks nekrītas, bet peldēt ir grūtāk', dur: 25 },
 };
 // Every banner, speech bubble and floating word stays up this long: the player reads slowly.
 const TEXT_TIME = 8;
@@ -1223,7 +1313,7 @@ function enterLocation(id) {
   if (L.spring) for (let k = 0; k < HOME_DIGITS; k++) spawnHomeDigit(0);
   cam.x = clamp(h.x - VW / Z / 2, 0, Math.max(0, WORLD_W - VW / Z));
   cam.y = clamp(h.y - VH / Z / 2, 0, Math.max(0, WORLD_H - VH / Z));
-  banner('map', def.name, def.novads + ' · ' + REGIONS[def.region].name);
+  banner('map', tr(def.name), tr(def.novads) + ' · ' + tr(REGIONS[def.region].name));
   g.dirty = true;
 }
 
@@ -1448,7 +1538,7 @@ function spawnItem(x, y, id) {
 function giveItem(id) {
   if (id === 'flute') { playFlute(); return; }
   game.fx[id] = FX_INFO[id].dur;
-  banner(id, FX_INFO[id].name, FX_INFO[id].sub);
+  banner(id, tr(FX_INFO[id].name), tr(FX_INFO[id].sub));
   sfx('chest');
 }
 
@@ -1549,7 +1639,7 @@ function fight(target, owner, hx, hy) {
       target.regrowT = owner.regrow;
       puff(hx, hy);
       if (owner.heads.every(hd => hd.beaten)) defeatBoss(owner);
-      else popup(h.x, h.y - 130, JODS_WORDS[0], YELLOW, 24);
+      else popup(h.x, h.y - 130, tr(JODS_WORDS[0]), YELLOW, 24);
     } else if (owner.kind === 'boss') {
       defeatBoss(owner);
     } else {
@@ -1573,7 +1663,7 @@ function fight(target, owner, hx, hy) {
     if (++game.bumps >= 3) {
       game.bumps = 0;
       game.hint = { kind: 'item', t: 6 };
-      popup(h.x, h.y - 110, 'Atrodi ieroci!', '#4fb4ff', 30);
+      popup(h.x, h.y - 110, tr('Atrodi ieroci!'), '#4fb4ff', 30);
     }
   }
 }
@@ -1589,23 +1679,23 @@ function defeatBoss(b) {
   burst(b.x, b.y - 60, 30, 'star', ['#ffe35a', '#4fb4ff', '#ffffff'], 300);
   if (b.type === 'bear') {
     b.fleeing = 3; b.vx = 0; b.vy = -90; b.waving = true;
-    banner('bear', 'Lācis uzvarēts!', 'Atver zelta lādi!');
+    banner('bear', tr('Lācis uzvarēts!'), tr('Atver zelta lādi!'));
   } else if (b.type === 'jods') {
     // his "hurry, the heads are coming round" words go at once: there's nothing left to hurry for
-    g.popups = g.popups.filter(p => !JODS_WORDS.includes(p.text));
+    g.popups = g.popups.filter(p => !JODS_WORDS.some(w => p.text === tr(w)));
     // he sits down with a thump, every head dizzy, then gets up and stomps off
     b.fleeing = GIANT_SIT + 2.4; b.sitT = GIANT_SIT; b.vx = 0; b.vy = 0; b.slam = null;
     tone(70, 40, 0.45, 'sine', 0.25);
-    banner('jods', JODS_NAMES[b.heads.length] + ' uzvarēts!', 'Atver zelta lādi!');
+    banner('jods', tr('{n} uzvarēts!', { n: tr(JODS_NAMES[b.heads.length]) }), tr('Atver zelta lādi!'));
   } else if (b.type === 'witch') {
     b.fleeing = 3; b.vx = 90; b.vy = -140;
-    banner('broom', 'Ragana uzvarēta!', 'Atver zelta lādi!');
+    banner('broom', tr('Ragana uzvarēta!'), tr('Atver zelta lādi!'));
   } else {
     b.fleeing = 1.5;
     const h = g.hero, d = Math.max(1, dist(b.x, b.y, h.x, h.y));
     b.vx = (b.x - h.x) / d * 220; b.vy = (b.y - h.y) / d * 220;
     b.face = b.vx > 0 ? 1 : -1;
-    banner('crown', 'Vadonis uzvarēts!', 'Atver zelta lādi!');
+    banner('crown', tr('Vadonis uzvarēts!'), tr('Atver zelta lādi!'));
   }
   g.chests.push(makeChest(b.home.x, b.home.y + 40, true));
   writeSave();
@@ -1625,16 +1715,16 @@ function openChest(c) {
     const fresh = LOCATIONS.filter(l => isUnlocked(l.id) && !before.includes(l.id)).map(l => l.id);
     g.fireworks.push({ x: h.x, y: h.y - 80, t: 4, next: 0 });
     if (g.loc.id === FINAL_LOC) {
-      banner('check', 'Paldies, ka spēlēji!', 'Rīga un Melnais bruņinieks — drīzumā!');
+      banner('check', tr('Paldies, ka spēlēji!'), tr('Rīga un Melnais bruņinieks — drīzumā!'));
     } else if (fresh.length) {
-      banner('lock', fresh.length > 1 ? 'Jaunas vietas kartē!' : 'Jauna vieta kartē!',
-        fresh.map(id => LOC_BY_ID[id].name).join(', '), NEW_MAP_DELAY);
+      banner('lock', tr(fresh.length > 1 ? 'Jaunas vietas kartē!' : 'Jauna vieta kartē!'),
+        fresh.map(id => tr(LOC_BY_ID[id].name)).join(', '), NEW_MAP_DELAY);
       g.mapNew = fresh;
       g.mapSel = fresh[0];
       g.openMapT = NEW_MAP_DELAY;
       setTimeout(() => sfx('fanfare'), 700);
     } else {
-      banner('check', 'Vieta uzvarēta!', 'Karte rāda, kur doties tālāk');
+      banner('check', tr('Vieta uzvarēta!'), tr('Karte rāda, kur doties tālāk'));
     }
     writeSave();
     return;
@@ -1661,7 +1751,7 @@ function playFlute() {
     } else { e.sleepT = 15; e.nap = false; n++; }
   }
   sfx('sleep');
-  banner('flute', 'Miega stabule', n ? 'Ienaidnieki snauž un ir vājāki!' : 'Tuvumā neviena nav...');
+  banner('flute', tr('Miega stabule'), tr(n ? 'Ienaidnieki snauž un ir vājāki!' : 'Tuvumā neviena nav...'));
 }
 
 // ---------- Update ----------
@@ -1687,8 +1777,8 @@ function update(dt) {
   for (const k in g.fx) g.fx[k] = Math.max(0, g.fx[k] - dt);
   if (wasFlying && g.fx.broom <= 0) {
     const i = cellOf(h.x, h.y), b = i < 0 ? 2 : blocked[i];
-    if (b === 1) { h.swimOK = true; banner('swim', 'Peldi uz krastu!', 'Ūdenī spēks krīt'); }
-    else if (b !== 0) { burnForest(h.x, h.y); banner('burn', 'Mežs nodega', 'Tā tu tiki ārā'); }
+    if (b === 1) { h.swimOK = true; banner('swim', tr('Peldi uz krastu!'), tr('Ūdenī spēks krīt')); }
+    else if (b !== 0) { burnForest(h.x, h.y); banner('burn', tr('Mežs nodega'), tr('Tā tu tiki ārā')); }
   }
   g.askCd = Math.max(0, g.askCd - dt);
   updateBurnt(dt);
@@ -1769,7 +1859,7 @@ function updateHero(dt) {
   const boggy = !fly && inSwamp(h.x, h.y);
   if (boggy && !h.boggy && g.time > (g.swampSayT || 0)) {
     g.swampSayT = g.time + 25;
-    popup(h.x, h.y - 110, 'Purvs! Lēni...', '#e8f0c0', 24);
+    popup(h.x, h.y - 110, tr('Purvs! Lēni...'), '#e8f0c0', 24);
     tone(160, 90, 0.25, 'sine', 0.1); tone(110, 70, 0.2, 'sine', 0.08, 0.12);
   }
   h.boggy = boggy;
@@ -1820,7 +1910,7 @@ function edgeSay() {
   const g = game, h = g.hero;
   if (g.time < (g.edgeSayT || 0)) return;
   g.edgeSayT = g.time + 2.5;
-  popup(h.x, h.y - 120, 'Šis mežs par biezu!', '#ffffff', 22);
+  popup(h.x, h.y - 120, tr('Šis mežs par biezu!'), '#ffffff', 22);
   tone(220, 160, 0.2, 'triangle', 0.08);
 }
 
@@ -1876,9 +1966,9 @@ function drawBurnPanel() {
   rr(0, 0, BURN_W, BURN_H, 22, 'rgba(255,250,240,0.96)');
   ctx.strokeStyle = '#c8302e'; ctx.lineWidth = 4; ctx.stroke();
   drawIcon('burn', 44, 44, 1.35 * pulse);
-  drawText(178, 34, 'Dedzināt mežu?', 26, '#9e1b22', null, 900);
+  drawText(178, 34, tr('Dedzināt mežu?'), 26, '#9e1b22', null, 900);
   const c = burnCost();
-  drawText(178, 66, c >= 1 ? 'Spēks −' + Math.round(c) : 'Spēks mazliet kritīs', 17, '#3a3f55', null, 700);
+  drawText(178, 66, c >= 1 ? tr('Spēks −{n}', { n: Math.round(c) }) : tr('Spēks mazliet kritīs'), 17, '#3a3f55', null, 700);
   // time left to answer
   ctx.fillStyle = 'rgba(200,48,46,0.3)'; ctx.fillRect(20, BURN_H - 10, (BURN_W - 40) * a.t / BURN_ASK_TIME, 4);
   const yb = { x: 80, y: 122 }, nb = { x: BURN_W - 80, y: 122 };
@@ -1956,7 +2046,7 @@ function updateHouses(dt) {
     g.ally = { type: hs.id, x: hs.x, y: hs.y + 24, face: 1, moving: false, t: C.dur };
     g.houseCd[hs.id] = C.dur + 30;
     puff(hs.x, hs.y + 10);
-    banner(hs.id, C.name + ' nāk palīgā!', C.sub);
+    banner(hs.id, tr('{n} nāk palīgā!', { n: tr(C.name) }), tr(C.sub));
     sfx('chest');
   }
 }
@@ -2130,7 +2220,7 @@ function updateJods(e, dt) {
       hd.value = hd.base;   // back with the same number it had
       const p = jodsHeadPos(e, k, t);
       puff(e.x + p.x, e.y + p.y);
-      popup(e.x + p.x, e.y + p.y - 60, JODS_WORDS[1], RED, 22);
+      popup(e.x + p.x, e.y + p.y - 60, tr(JODS_WORDS[1]), RED, 22);
       tone(200, 90, 0.4, 'sawtooth', 0.08);
     }
   }
@@ -2193,7 +2283,7 @@ function updatePickups(dt) {
     popup(h.x, h.y - 110, '+' + v, BLUE, 30);
     burst(sp.x, sp.y - 10, 20, 'spark', ['#7cc6ff', '#ffffff'], 220);
     sfx('chest');
-    banner('swim', 'Avotiņš', 'Spēks atkal pilns!');
+    banner('swim', tr('Avotiņš'), tr('Spēks atkal pilns!'));
   }
 }
 
@@ -3441,7 +3531,7 @@ function drawHouse(hs, t) {
   drawIcon(hs.id, 0, sy, 0.85);
   ctx.globalAlpha = 1;
   if (!ready) zzz(18, sy - 14, t);
-  drawText(0, 18, COMPANIONS[hs.id].name, 16, '#ffffff');
+  drawText(0, 18, tr(COMPANIONS[hs.id].name), 16, '#ffffff');
   ctx.restore();
 }
 
@@ -3872,7 +3962,7 @@ function drawSign(s, t) {
   circ(0, -100, 20, 'rgba(255,250,240,0.95)');
   ctx.strokeStyle = BLUE; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, -100, 20, 0, TAU); ctx.stroke();
   drawIcon('map', 0, -100, 0.8);
-  drawText(0, 16, 'Karte', 15, '#ffffff');
+  drawText(0, 16, tr('Karte'), 15, '#ffffff');
   ctx.restore();
 }
 
@@ -4036,13 +4126,13 @@ function drawWorld() {
   for (const b of g.bolts) drawBolt(b);
   if (L.paija && inView(L.paija.x, L.paija.y)) {
     const pp = L.paija;
-    if (g.paijaSay > 0) speech(pp.x, pp.y - 100, 'Sveiks, Lāčplēsi!');
+    if (g.paijaSay > 0) speech(pp.x, pp.y - 100, tr('Sveiks, Lāčplēsi!'));
     else if (g.paijaCd <= 0) { circ(pp.x, pp.y - 90, 17, 'rgba(255,250,240,0.92)'); drawIcon('sword', pp.x, pp.y - 90, 0.6); }
   }
 
   for (const m of g.maidens) {
     if (!inView(m.x, m.y)) continue;
-    if (m.say > 0) speech(m.x, m.y - 104, m.line);
+    if (m.say > 0) speech(m.x, m.y - 104, tr(m.line));
     else if (m.cd <= 0) { circ(m.x, m.y - 94, 17, 'rgba(255,250,240,0.92)'); drawIcon(m.gift, m.x, m.y - 94, 0.6); }
   }
   if (g.burnAsk) {
@@ -4075,7 +4165,7 @@ function drawWorld() {
 
 function drawWaterName(x, y, a, name, size) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-  drawText(0, 0, name, size, 'rgba(255,255,255,0.85)', 'rgba(30,70,120,0.6)', 900);
+  drawText(0, 0, tr(name), size, 'rgba(255,255,255,0.85)', 'rgba(30,70,120,0.6)', 900);
   ctx.restore();
 }
 
@@ -4308,7 +4398,7 @@ function drawHUD() {
   circ(m.x + 4, m.y + m.h, 17, 'rgba(255,250,240,0.97)');
   ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(m.x + 4, m.y + m.h, 17, 0, TAU); ctx.stroke();
   drawIcon('map', m.x + 4, m.y + m.h, 0.62);
-  drawText(m.x + m.w / 2 + 10, m.y + m.h + 18, g.loc.name, 15, '#ffffff');
+  drawText(m.x + m.w / 2 + 10, m.y + m.h + 18, tr(g.loc.name), 15, '#ffffff');
   // mute
   const mr = muteRect();
   circ(mr.x, mr.y, mr.r, 'rgba(255,250,240,0.92)');
@@ -4348,6 +4438,19 @@ function drawFlag(x, y, w, h) {
 
 function playRect() { return { x: VW / 2, y: VH * 0.74, r: 52 }; }
 function restartRect() { return { x: VW / 2 - 95, y: VH * 0.74 + 74, w: 190, h: 40 }; }
+// the language switch in the title screen's bottom-right corner: one half per language
+function langRect() { return { x: VW - 128, y: VH - 56, w: 116, h: 44 }; }
+
+function drawLangSwitch() {
+  const r = langRect(), hw = r.w / LANGS.length;
+  rr(r.x, r.y, r.w, r.h, 14, 'rgba(255,255,255,0.9)');
+  ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 2; ctx.stroke();
+  LANGS.forEach((l, k) => {
+    const on = l === LANG;
+    if (on) rr(r.x + k * hw + 4, r.y + 4, hw - 8, r.h - 8, 10, '#9e1b22');
+    drawText(r.x + k * hw + hw / 2, r.y + r.h / 2, l.toUpperCase(), 18, on ? '#ffffff' : '#9e1b22', null, 900);
+  });
+}
 
 function drawTitle() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -4369,7 +4472,7 @@ function drawTitle() {
     }
   }
   const ts = Math.min(84, VW / 7.5);
-  drawText(cx, oy + 42 + ts * 0.55, 'LĀČPLĒSIS', ts, '#9e1b22', '#ffffff', 900);
+  drawText(cx, oy + 42 + ts * 0.55, tr('LĀČPLĒSIS'), ts, '#9e1b22', '#ffffff', 900);
   ctx.save();
   ctx.translate(cx, VH * 0.6);
   const s = Math.min(3, VH / 260);
@@ -4386,8 +4489,9 @@ function drawTitle() {
     const r = restartRect();
     rr(r.x, r.y, r.w, r.h, 12, 'rgba(255,255,255,0.9)');
     ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 2; ctx.stroke();
-    drawText(r.x + r.w / 2, r.y + r.h / 2, 'No sākuma', 18, '#9e1b22', null);
+    drawText(r.x + r.w / 2, r.y + r.h / 2, tr('No sākuma'), 18, '#9e1b22', null);
   }
+  drawLangSwitch();
 }
 
 function askButtons() {
@@ -4404,11 +4508,11 @@ function drawAsk() {
   rr(x0, y0, w, 290, 22, 'rgba(255,250,240,0.97)');
   ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 4; ctx.stroke();
   drawIcon(a.kind, VW / 2, y0 + 50, 1.5);
-  const title = { swim: 'Peldēt?', burn: 'Dedzināt mežu?', restart: 'Sākt no jauna?' }[a.kind];
+  const title = tr({ swim: 'Peldēt?', burn: 'Dedzināt mežu?', restart: 'Sākt no jauna?' }[a.kind]);
   drawText(VW / 2, y0 + 105, title, 32, '#9e1b22', null, 900);
-  const cost = a.kind === 'swim' ? 'Ūdenī spēks ātri krīt'
-    : a.kind === 'restart' ? 'Viss sāksies no paša sākuma'
-    : burnCost() >= 1 ? 'Spēks samazināsies par ' + Math.round(burnCost()) : 'Spēks mazliet samazināsies';
+  const cost = a.kind === 'swim' ? tr('Ūdenī spēks ātri krīt')
+    : a.kind === 'restart' ? tr('Viss sāksies no paša sākuma')
+    : burnCost() >= 1 ? tr('Spēks samazināsies par {n}', { n: Math.round(burnCost()) }) : tr('Spēks mazliet samazināsies');
   drawText(VW / 2, y0 + 140, cost, 18, '#3a3f55', null, 700);
   const [yb, nb] = askButtons();
   circ(yb.x, yb.y, yb.r, '#3f9b4a');
@@ -4422,7 +4526,7 @@ function drawPause() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = 'rgba(20,30,50,0.45)';
   ctx.fillRect(0, 0, VW, VH);
-  drawText(VW / 2, VH * 0.4, 'Pauze', 56, '#ffffff');
+  drawText(VW / 2, VH * 0.4, tr('Pauze'), 56, '#ffffff');
   const p = playRect();
   circ(p.x, p.y, p.r, '#3f9b4a');
   tri(p.x - 16, p.y - 24, p.x - 16, p.y + 24, p.x + 26, p.y, '#ffffff');
@@ -4470,7 +4574,7 @@ function drawMapScreen() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#f4ecd8';
   ctx.fillRect(0, 0, VW, VH);
-  drawText(VW / 2, 32, 'Latvija', 32, '#9e1b22', null, 900);
+  drawText(VW / 2, 32, tr('Latvija'), 32, '#9e1b22', null, 900);
   ctx.save();
   ctx.beginPath(); ctx.rect(m.view.x, m.y0, m.view.w, m.h); ctx.clip();
   ctx.imageSmoothingEnabled = true;
@@ -4516,8 +4620,8 @@ function drawMapScreen() {
     if (l.id === g.loc.id) star5(p.x, p.y - r - 12, 11, -Math.PI / 2 + Math.sin(t * 3) * 0.2, BLUE);
     if (sel || l.id === g.loc.id) {
       ctx.font = `800 13px ${FONT}`;
-      const hw = ctx.measureText(l.name).width / 2 + 4;
-      drawText(clamp(p.x, m.view.x + hw, m.view.x + m.view.w - hw), p.y + r + 12, l.name, 13, '#ffffff', 'rgba(16,22,44,0.85)', 800);
+      const hw = ctx.measureText(tr(l.name)).width / 2 + 4;
+      drawText(clamp(p.x, m.view.x + hw, m.view.x + m.view.w - hw), p.y + r + 12, tr(l.name), 13, '#ffffff', 'rgba(16,22,44,0.85)', 800);
     }
   }
   ctx.restore();
@@ -4539,19 +4643,19 @@ function drawMapScreen() {
       while (size > 11 && ctx.measureText(s).width > tw) { size--; ctx.font = `${weight} ${size}px ${FONT}`; }
       return size;
     };
-    const name = l.name + (done ? ' ✔' : '');
+    const name = tr(l.name) + (done ? ' ✔' : '');
     let size = fit(name, 24, 900);
     ctx.fillStyle = '#9e1b22'; ctx.textBaseline = 'middle'; ctx.fillText(name, tx, c.y + 30);
-    const sub = l.novads + ' · ' + REGIONS[l.region].name;
+    const sub = tr(l.novads) + ' · ' + tr(REGIONS[l.region].name);
     size = fit(sub, 16, 700);
     ctx.fillStyle = '#3a3f55'; ctx.fillText(sub, tx, c.y + 58);
     let status;
     if (!un) {
-      if (l.final) status = 'Vispirms uzvari: ' + REGION_BOSS_LOCS.filter(o => !isDone(o.id)).map(o => o.name).join(', ');
-      else status = 'Vispirms uzvari: ' + LOCATIONS.filter(o => o.next.includes(l.id)).map(o => o.name).join(' vai ');
-    } else if (here) status = 'Tu esi šeit';
-    else if (done) status = 'Te tu jau uzvarēji';
-    else status = 'Doties ceļā!';
+      if (l.final) status = tr('Vispirms uzvari: {n}', { n: REGION_BOSS_LOCS.filter(o => !isDone(o.id)).map(o => tr(o.name)).join(', ') });
+      else status = tr('Vispirms uzvari: {n}', { n: LOCATIONS.filter(o => o.next.includes(l.id)).map(o => tr(o.name)).join(tr(' vai ')) });
+    } else if (here) status = tr('Tu esi šeit');
+    else if (done) status = tr('Te tu jau uzvarēji');
+    else status = tr('Doties ceļā!');
     size = fit(status, 16, 800);
     ctx.fillStyle = un ? '#3f7a3a' : '#7a7f88'; ctx.fillText(status, tx, c.y + 86);
     ctx.textAlign = 'center';
@@ -4669,8 +4773,11 @@ canvas.addEventListener('pointerdown', e => {
   if (actx && actx.state === 'suspended') actx.resume();
   const x = e.clientX, y = e.clientY;
   if (state === 'title') {
-    const p = playRect(), r = restartRect();
-    if (dist(x, y, p.x, p.y) < p.r + 10) startGame(!!save);
+    const p = playRect(), r = restartRect(), lr = langRect();
+    if (x > lr.x && x < lr.x + lr.w && y > lr.y && y < lr.y + lr.h) {
+      setLang(LANGS[Math.min(LANGS.length - 1, Math.floor((x - lr.x) / (lr.w / LANGS.length)))]);
+      sfx('pling');
+    } else if (dist(x, y, p.x, p.y) < p.r + 10) startGame(!!save);
     else if (save && x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) { clearSave(); save = null; startGame(false); }
     return;
   }
@@ -4724,6 +4831,7 @@ window.addEventListener('keydown', e => {
   ensureAudio();
   if (e.code.startsWith('Arrow')) e.preventDefault();
   if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) { startGame(!!save); return; }
+  if (state === 'title' && e.code === 'KeyL') { setLang(LANGS[(LANGS.indexOf(LANG) + 1) % LANGS.length]); return; }
   if (state === 'ask') {
     if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyY' || e.code === 'KeyJ') answerAsk(true);
     else if (e.code === 'Escape' || e.code === 'KeyN') answerAsk(false);
@@ -4772,5 +4880,6 @@ function frame(now) {
 window.addEventListener('resize', resize);
 resize();
 buildOverview();
+setLang(LANG);
 newGame(!!save);
 requestAnimationFrame(frame);

@@ -4,10 +4,17 @@ A top-down browser game for young children, set in Latvia. Lāčplēsis, the bea
 the Latvian epic, travels from place to place on a map of Latvia. Each place is small (a couple of
 meadows, a piece of forest, sometimes a lake, the coast or a big bridge), and in each he beats
 monsters whose number is smaller than his own and then the place's boss, which opens the next
-places. All text is in Latvian. Based on `spec.md`.
+places. The text is in Latvian or English: the LV / EN switch on the title screen (or the L key) picks it,
+and Latvian is the default. Based on `spec.md`.
 
 There are 18 places across Vidzeme, Zemgale, Kurzeme and Latgale; Sēlija and Rīga come later.
 The map of Latvia uses Natural Earth data (public domain).
+
+![Lāčplēsis at home in the Lielvārde meadows, by the magic spring and the map signpost](docs/screenshot-place.png)
+
+![The map of Latvia, with Vidzeme and part of Zemgale won](docs/screenshot-map.png)
+
+The screenshots show the English text; the game starts in Latvian.
 
 ## Run
 
@@ -17,6 +24,8 @@ sounds are generated in code.
 To try every place without playing through: open it with `#visas` at the end of the address
 (`index.html#visas`). Every place on the map is open from the start, but nothing is beaten and the
 save keeps only what you really win.
+
+To pick the language from the address, add `?lang=en` or `?lang=lv` (`index.html?lang=en`).
 
 ## How it plays
 
