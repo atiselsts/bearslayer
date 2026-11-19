@@ -27,6 +27,12 @@ save keeps only what you really win.
 
 To pick the language from the address, add `?lang=en` or `?lang=lv` (`index.html?lang=en`).
 
+If frames get too slow, the game first stops the water moving (waves, river flow, the waterfall),
+then lowers the drawing resolution. For checking speed on a device, the frame rate and resolution
+show in a corner for now (`?fps=0` hides them; `~` means the water has stopped), `?water=still`
+stops the water from the start, and `?jods=live` draws Jods fully every frame instead of from his
+cached body (`index.html?water=still&jods=live`).
+
 ## How it plays
 
 | Control | Keyboard | Mouse or touch |
@@ -41,14 +47,16 @@ To pick the language from the address, add `?lang=en` or `?lang=lv` (`index.html
 - **Fights** happen by walking into an enemy. A weaker one runs away and he gains part of its
   number. A stronger one just pushes him back: there is no death and no game over.
 - **Scaling:** enemies and bosses are set relative to his strength whenever they are out of sight,
-  and keep their number while on screen. Strength never goes above 999.
+  and keep their number while on screen. A Jods's heads get theirs once, on the first visit, from
+  his fighting strength with his weapons. Strength never goes above 999.
 - **Drain:** strength slowly drops over time, but never below half of the best it has been.
 - **Home:** blue digits float around the magic spring at Lielvārde, and the spring refills
   strength to its best.
 - **Places:** pick one on the map of Latvia, a few per novads. Each is fixed every game, so it
   can be learned, and its forests are small mazes.
-- **Burning and swimming:** pushing into the trees can burn a way through, and rivers and lakes
-  can be swum, both after a confirm and at a cost in strength. Swamps by lakes and rivers slow
+- **Burning and swimming:** with the torch (Lāpa, a major item) lit, walking into the trees burns a
+  way through at once, for free, though each gap burns 5 s of the torch away; without it, pushing at them says "Atrodi lāpu!". Rivers and lakes
+  can be swum after a confirm, at a cost in strength. Swamps by lakes and rivers slow
   him (and enemies) to half speed. Islands (in Inesis, and the Kolka lighthouse's island at the end
   of its reef) can only be swum to and always have valuable gifts.
 - **Weapons and armour:** minor ones (sword, helmet, shield, seven-league boots) mostly lie
@@ -64,7 +72,7 @@ To pick the language from the address, add `?lang=en` or `?lang=lv` (`index.html
   leaves a golden chest that opens the next places.
 - **Final boss:** once all four main bosses are beaten, Tērvete hillfort opens, where the
   nine-headed Jods waits.
-- **Tautumeitas** in folk costume stand in every other place and give Lāčplēsis major weapons and gear.
+- **Tautumeitas** in folk costume stand in every other place and give Lāčplēsis major weapons and gear (never the torch).
 
 Progress is saved in the browser's `localStorage`.
 

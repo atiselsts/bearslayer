@@ -31,19 +31,29 @@ bosses, terrain or movement, run:
   region's main boss, and the `final` place (Tērvetes pilskalns) opens only when all of those are
   beaten (`isUnlocked`).
 - Terrain is a 25 px grid. `blocked` is 0 free, 1 water (swim or fly), 2 hard (sea, edge belt,
-  buildings) and 3 forest (burn or fly). The edge belt (`T_EDGE`) looks like forest but never burns.
-  `swamp` marks free cells that halve walking speed; `buildSwamps()` uses its own seed, so adding or
-  tuning swamps doesn't change the rest of a layout. `buildIslands()` makes islands (land in water,
-  not in `L.reach`, so nothing spawns there except their `gifts`) and `reefs` (sea turned into
-  swimmable water).
+  buildings) and 3 forest (burn with the torch, or fly). The edge belt (`T_EDGE`) looks like forest
+  but never burns. `swamp` marks free cells that halve walking speed; `buildSwamps()` uses its own
+  seed, so adding or tuning swamps doesn't change the rest of a layout. `buildIslands()` makes
+  islands (land in water, not in `L.reach`, so nothing spawns there except their `gifts`) and
+  `reefs` (sea turned into swimmable water).
 - Scenery (`L.decor`: trees, flowers, rocks, reeds, puddles) is drawn through `drawDecorSprite()`,
   which draws each type, size and look variant once into a small canvas and then copies it on whole
-  pixels; that was most of the CPU time. A new decor type needs its extent in `DECOR_BOX` (or it is
-  drawn the slow way), and `DECOR_VARIES` if its look depends on `d.v`.
-- The ground under the scenery (ground picture, rivers, lakes, islands, water names) is drawn once
-  into 256-unit tiles by `drawGroundLayer()` and copied each frame; anything that moves or must sit
-  on top of the rivers (waves, river flow, waterfall, bridges, fields) is drawn per frame in
-  `drawWorld()`. Changing the ground of a place after it is built needs `clearGroundTiles()`.
+  pixels. A new decor type needs its extent in `DECOR_BOX` (or it is drawn the slow way and gets a
+  generous box in `decorReach()`), and `DECOR_VARIES` if its look depends on `d.v`.
+- The ground (ground picture, rivers, lakes, islands, water names, crop fields (off for now,
+  `CROP_FIELDS`) and all the scenery) is drawn once into 256-unit tiles by `drawGroundLayer()` and
+  copied each frame; a place's tiles are all made ahead, one a frame. Anything that moves or must
+  sit on top (waves, river flow, waterfall, bridges, the village, entities) is drawn per frame in
+  `drawWorld()`. Changing the ground or scenery of a place after it is built needs `dirtyGround()`
+  for that area (burning and regrowing forest use `dirtyForest()`), or `clearGroundTiles()` for all
+  of it.
+- Speed: the tablet was the slow case. The canvas resolution is capped at 1.5× (`resCap`). If
+  frames stay under 40 a second, `watchSpeed()` first stands the water still (`waterAnim`: waves,
+  river flow, the waterfall and bridges go into the ground tiles via `drawWater()`), then steps the
+  resolution down to 1.25× and 1×. Pixels filled,
+  not JS, are the cost, so keep per-frame drawing small. Jods's body and heads are cached in a
+  canvas redrawn 12 times a second (`JODS_FPS`); his arms and weapons stay live. The frame rate
+  shows in a corner for now (`SHOW_FPS`, `?fps=0` hides it); `?jods=live` turns the Jods cache off.
 - The map screen draws `ovCanvas`, built once from the `LV_LL`, `NEIGH_LL`, `RIVERS_LL`, `LAKES_LL`
   and `REGION_GRID` data, which `tools/make_geo.py` generates. River widths are set by hand.
 - Language: every shown text goes through `tr()`, which looks the Latvian text up in the `EN`

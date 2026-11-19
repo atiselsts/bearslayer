@@ -7,9 +7,24 @@
 const canvas = document.getElementById('game');
 let ctx = canvas.getContext('2d');   // `let`: scenery sprites are drawn by pointing it at a small canvas for a moment
 let VW = 0, VH = 0, DPR = 1, Z = 1;
+// The canvas is drawn at no more than 1.5 pixels per CSS pixel: a tablet's full 2× or 3× costs
+// two to four times as much to fill for a picture that hardly looks sharper. If frames still come
+// too slowly, lowerRes() steps this down (see the main loop).
+let resCap = 1.5;
+// The water moves until frames get too slow (see watchSpeed in the main loop).
+let waterAnim = true;
+// For checking speed on a device: the frame rate and the resolution show in a corner (always, for
+// now; ?fps=0 hides them; ~ means the water stands still), ?jods=live draws Jods fully every frame
+// instead of from his cached body, and ?water=still stands the water still from the start.
+let SHOW_FPS = true, JODS_LIVE = false;
+try {
+  const q = new URLSearchParams(window.location.search);
+  SHOW_FPS = q.get('fps') !== '0'; JODS_LIVE = q.get('jods') === 'live';
+  if (q.get('water') === 'still') waterAnim = false;
+} catch (e) { /* no address */ }
 
 function resize() {
-  DPR = window.devicePixelRatio || 1;
+  DPR = Math.min(window.devicePixelRatio || 1, resCap);
   VW = window.innerWidth;
   VH = window.innerHeight;
   canvas.width = Math.floor(VW * DPR);
@@ -58,11 +73,9 @@ const LANGS = ['lv', 'en'];
 const EN = {
   // title, screens and buttons
   'LĀČPLĒSIS': 'BEARSLAYER', 'Lāčplēsis': 'Bearslayer', 'No sākuma': 'New game', 'Pauze': 'Paused',
-  'Karte': 'Map', 'Latvija': 'Latvia', 'Peldēt?': 'Swim?', 'Dedzināt mežu?': 'Burn the forest?',
+  'Karte': 'Map', 'Latvija': 'Latvia', 'Peldēt?': 'Swim?',
   'Sākt no jauna?': 'Start again?', 'Ūdenī spēks ātri krīt': 'Strength drops fast in water',
   'Viss sāksies no paša sākuma': 'Everything starts from the very beginning',
-  'Spēks samazināsies par {n}': 'Strength goes down by {n}', 'Spēks mazliet samazināsies': 'Strength goes down a little',
-  'Spēks −{n}': 'Strength −{n}', 'Spēks mazliet kritīs': 'Strength drops a little',
   // map of Latvia
   'IGAUNIJA': 'ESTONIA', 'KRIEVIJA': 'RUSSIA', 'BALTKRIEVIJA': 'BELARUS', 'LIETUVA': 'LITHUANIA',
   'Baltijas': 'Baltic', 'jūra': 'Sea', 'Rīgas jūras līcis': 'Gulf of Riga', 'Rīga': 'Riga',
@@ -93,7 +106,8 @@ const EN = {
   // moving about
   'Peldi uz krastu!': 'Swim to the shore!', 'Ūdenī spēks krīt': 'Strength drops in water',
   'Mežs nodega': 'The forest burned', 'Tā tu tiki ārā': 'That\'s how you got out', 'Purvs! Lēni...': 'Bog! Slow...',
-  'Šis mežs par biezu!': 'This forest is too thick!', 'Avotiņš': 'The spring', 'Spēks atkal pilns!': 'Strength full again!',
+  'Šis mežs par biezu!': 'This forest is too thick!', 'Atrodi lāpu!': 'Find a torch!',
+  'Lāpa': 'Torch', 'Ej mežā, un tas nodegs': 'Walk into forest and it burns', 'Avotiņš': 'The spring', 'Spēks atkal pilns!': 'Strength full again!',
   // people
   'Sveiks, Lāčplēsi!': 'Hello, Bearslayer!', 'Še, ņem!': 'Here, take it!', 'Lai tev veicas!': 'Good luck!',
   'Labdien, varoni!': 'Good day, hero!', 'Tas tev!': 'This is for you!',
@@ -441,6 +455,8 @@ function buildOverview() {
   glowGold = makeGlow('255,205,60');
 }
 
+const CROP_FIELDS = false;
+
 // Build the playing area of one location. The layout is fixed every game, so it can be learned.
 function buildLocation(def) {
   const rng = seeded(def.seed);
@@ -588,9 +604,10 @@ function buildLocation(def) {
   for (let i = 0; i < GW * GH; i++) if (reach[i] && terrain[i] === T_LAND) l.landCells.push(i);
   l.reach = reach;
 
-  // big crop fields out on the meadows (walkable, just drawn on the ground)
+  // big crop fields out on the meadows (walkable, just drawn on the ground); switched off for now
+  // with CROP_FIELDS (turning them back on moves the scenery after them in places that have fields)
   l.fields = [];
-  for (let k = 0, tries = 0; k < (def.fields ?? R.fields ?? 0) && tries < 300; tries++) {
+  for (let k = 0, tries = 0; CROP_FIELDS && k < (def.fields ?? R.fields ?? 0) && tries < 300; tries++) {
     const w = 260 + rng() * 160, h = 160 + rng() * 90, a = (rng() - 0.5) * 0.5;
     const x = 120 + rng() * (WORLD_W - 240), y = 120 + rng() * (WORLD_H - 240);
     const cs = Math.cos(a), sn = Math.sin(a);
@@ -1216,6 +1233,7 @@ const FX_INFO = {
   broom: { name: 'Spīdolas slota', sub: 'Lido pāri mežam un ūdenim', dur: 12 },
   axe: { name: 'Pērkona cirvis', sub: 'Zibens trāpa vājākajiem', dur: 20 },
   helmet: { name: 'Ķivere', sub: 'Spēks ×1,25', dur: 25 },
+  torch: { name: 'Lāpa', sub: 'Ej mežā, un tas nodegs', dur: 20 },
   armor: { name: 'Bruņas', sub: 'Spēks nekrītas, bet peldēt ir grūtāk', dur: 25 },
 };
 // Every banner, speech bubble and floating word stays up this long: the player reads slowly.
@@ -1225,14 +1243,15 @@ const TEXT_TIME = 8;
 const NEW_MAP_DELAY = 2;
 const SWIM_COST = 0.015;
 const ARMOR_SWIM = 2;      // chain mail makes swimming cost twice as much strength  // share of strength lost per second while swimming
-const BURN_COST = 0.03;   // share of strength lost for burning a way through forest
 const REGROW = 90;        // seconds until burnt forest grows back
-const BURN_REACH = 420;   // how far away tapped trees can be for the burn question
+const TORCH_BURN = 5;     // seconds of the torch's time each gap burnt uses up
+const BURN_REACH = 420;   // with the torch, a tap on trees this close sends him straight into them
 const BURN_R = 62;        // radius of the gap that burning opens
 // Minor upgrades help a little and mostly lie on the ground. Major ones come from chests and
 // tautumeitas, and now and then one lies on the ground too.
 const MINOR_ITEMS = [{ id: 'sword', w: 3 }, { id: 'helmet', w: 2 }, { id: 'shield', w: 2 }, { id: 'boots', w: 1.5 }];
-const MAJOR_ITEMS = [{ id: 'club', w: 2 }, { id: 'axe', w: 1.5 }, { id: 'armor', w: 2 }, { id: 'broom', w: 1 }, { id: 'flute', w: 1.5 }];
+const MAJOR_ITEMS = [{ id: 'club', w: 2 }, { id: 'axe', w: 1.5 }, { id: 'torch', w: 2 }, { id: 'armor', w: 2 }, { id: 'broom', w: 1 }, { id: 'flute', w: 1.5 }];
+const MAIDEN_ITEMS = MAJOR_ITEMS.filter(it => it.id !== 'torch');   // tautumeitas don't hand out fire
 const GROUND_MAJOR = 0.15;  // share of ground items that are major
 const groundItem = () => weighted(Math.random() < GROUND_MAJOR ? MAJOR_ITEMS : MINOR_ITEMS).id;
 const COMPANIONS = {
@@ -1259,8 +1278,8 @@ function newGame(fromSave) {
     jods: s && s.jods && typeof s.jods === 'object' ? { ...s.jods } : {},
     loc: null, mapSel: null, mapNew: [], mapPan: 0, openMapT: 0, fade: 0, signArmed: false,
     items: [], decoys: [], maidens: [], digits: [], digitT: 0, enemies: [], chests: [], particles: [], popups: [], fireworks: [],
-    fx: { sword: 0, club: 0, axe: 0, shield: 0, helmet: 0, armor: 0, boots: 0, broom: 0 },
-    burnt: [], ask: null, burnAsk: null, askCd: 0,
+    fx: { sword: 0, club: 0, axe: 0, shield: 0, helmet: 0, armor: 0, boots: 0, broom: 0, torch: 0 },
+    burnt: [], ask: null, askCd: 0,
     houseCd: { kurbads: 0, koknesis: 0, spriditis: 0 }, zapT: 0, rescaleT: 1, bolts: [],
     ally: null, banner: null, hint: null, cine: null,
     spawnT: { item: 0, enemy: 0, chest: 30 },
@@ -1293,7 +1312,7 @@ function enterLocation(id) {
   decorSprites.clear();   // only this place's scenery and ground are kept
   clearGroundTiles();
   g.items = []; g.digits = []; g.enemies = []; g.chests = []; g.particles = []; g.popups = [];
-  g.fireworks = []; g.bolts = []; g.burnt = []; g.decoys = []; g.burnAsk = null;
+  g.fireworks = []; g.bolts = []; g.burnt = []; g.decoys = [];
   g.spawnT = { item: 0, enemy: 0, chest: 30 };
   g.islandT = [];
   h.x = L.start.x; h.y = L.start.y;
@@ -1370,7 +1389,10 @@ function giantHeadLayout(n) {
 function jodsValues(n) {
   const id = L.def.id, kept = game.jods[id];
   if (Array.isArray(kept) && kept.length === n) return kept.slice();
-  const vals = JODS_FACTORS[n].map(f => scaled(f * JODS_EASE));
+  // from his fighting strength as he arrives (weapons, helmet and Kurbads counted), so coming with
+  // the iron club doesn't beat every head at once
+  const eff = heroEff();
+  const vals = JODS_FACTORS[n].map(f => clamp(Math.round(eff * f * JODS_EASE), 1, MAX_POWER));
   game.jods[id] = vals.slice();
   game.dirty = true;
   return vals;
@@ -1451,7 +1473,7 @@ function placeMaidens() {
     let open = true;
     for (let dy = -2; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) if (blocked[i + dy * GW + dx] !== 0) open = false;
     if (!open) continue;
-    out.push({ x, y, cd: 0, say: 0, line: '', gift: weighted(MAJOR_ITEMS).id, ph: rng() * TAU,
+    out.push({ x, y, cd: 0, say: 0, line: '', gift: weighted(MAIDEN_ITEMS).id, ph: rng() * TAU,
       look: { ...MAIDEN_LOOKS[def.region][out.length % 2], hair: MAIDEN_HAIR[Math.floor(rng() * MAIDEN_HAIR.length)] } });
   }
   return out;
@@ -1466,7 +1488,7 @@ function updateMaidens(dt) {
     m.cd = 40; m.say = TEXT_TIME;
     m.line = pick(MAIDEN_LINES);
     spawnItem(m.x + 46, m.y + 18, m.gift);
-    m.gift = weighted(MAJOR_ITEMS).id;
+    m.gift = weighted(MAIDEN_ITEMS).id;
     burst(m.x, m.y - 60, 8, 'star', ['#ff8ad8', '#ffd84a', '#ffffff'], 120);
     sfx('song');
   }
@@ -1790,7 +1812,6 @@ function update(dt) {
   updatePickups(dt);
   updateSpawning(dt);
   updateHouses(dt);
-  updateBurnAsk(dt);
   updateMaidens(dt);
   updateDecoys(dt);
   updateZap(dt);
@@ -1878,7 +1899,8 @@ function updateHero(dt) {
   }
 }
 
-// Called when Lāčplēsis walks into something he can't pass. Water and forest ask first.
+// Called when Lāčplēsis walks into something he can't pass. Water asks first; with the torch lit,
+// forest burns away in front of him at once, and without it pushing at the trees says to find one.
 function blockedAhead(h, ix, iy, dt) {
   const g = game;
   const ax = h.x + ix * 16, ay = h.y + iy * 16;
@@ -1887,23 +1909,29 @@ function blockedAhead(h, ix, iy, dt) {
     openAsk({ kind: 'swim', route: h.route });
     return;
   }
-  if (b === 3 && g.askCd <= 0) {
-    const burnAt = { x: h.x + ix * 50, y: h.y + iy * 50 };
-    if (!h.route) {
-      // keyboard: push against the trees for a moment
-      if ((h.pushT += dt) > 0.6) { h.pushT = 0; offerBurn(burnAt); }
-      return;
-    }
-    const tg = h.routeTarget;
-    if (tg && blocked[cellOf(tg.x, tg.y)] === 3 && dist(tg.x, tg.y, h.x, h.y) < BURN_REACH) {
+  if (b === 3) {
+    if (g.fx.torch > 0) {
+      const tg = h.routeTarget;
       // burn where the tapped trees are, if they're close to him; otherwise just ahead of him
-      offerBurn(dist(tg.x, tg.y, h.x, h.y) < 110 ? { x: tg.x, y: tg.y } : burnAt);
+      const at = h.route && tg && blocked[cellOf(tg.x, tg.y)] === 3 && dist(tg.x, tg.y, h.x, h.y) < 110 ? tg : { x: h.x + ix * 50, y: h.y + iy * 50 };
+      burnForest(at.x, at.y);
+      g.fx.torch = Math.max(0, g.fx.torch - TORCH_BURN);   // each gap burns some of the torch away
       return;
     }
+    if ((h.pushT += dt) > 0.6) { h.pushT = 0; torchSay(); }
+    if (!h.route) return;
   }
   // The thick forest round the edge of a place can't be burnt: say so, instead of doing nothing.
   if (!h.route && i >= 0 && terrain[i] === T_EDGE && (h.pushT += dt) > 0.6) { h.pushT = 0; edgeSay(); }
   h.route = null;
+}
+
+function torchSay() {
+  const g = game, h = g.hero;
+  if (g.time < (g.edgeSayT || 0)) return;
+  g.edgeSayT = g.time + 4;
+  popup(h.x, h.y - 120, tr('Atrodi lāpu!'), '#ffffff', 22);
+  tone(220, 160, 0.2, 'triangle', 0.08);
 }
 
 function edgeSay() {
@@ -1921,65 +1949,6 @@ function openAsk(a) {
   setState('ask');
 }
 
-// Burning is offered without stopping the game: a small panel on the left with ✔ and ✖. It goes away
-// by itself if he walks off or doesn't answer for a while.
-const BURN_ASK_TIME = 6;
-function offerBurn(at) {
-  const g = game;
-  g.hero.route = null;
-  if (!g.burnAsk) tone(520, 660, 0.12, 'triangle', 0.08);
-  g.burnAsk = { at, t: BURN_ASK_TIME };
-}
-
-function answerBurn(yes) {
-  const g = game, a = g.burnAsk;
-  if (!a) return;
-  g.burnAsk = null;
-  if (yes) burnForest(a.at.x, a.at.y);
-  else g.askCd = 2.5;
-}
-
-function updateBurnAsk(dt) {
-  const g = game, a = g.burnAsk, h = g.hero;
-  if (a && ((a.t -= dt) <= 0 || dist(h.x, h.y, a.at.x, a.at.y) > 220)) { g.burnAsk = null; g.askCd = 1.5; }
-}
-
-// The panel is laid out at 300 × 170 and drawn 1.2 times that size, smaller only on small screens.
-const BURN_W = 300, BURN_H = 170;
-function burnPanel() {
-  const k = Math.min(1.2, (VW - 24) / BURN_W, (VH - 160) / BURN_H);
-  return { x: 12, y: clamp(VH / 2 - BURN_H * k / 2, 140, VH - BURN_H * k - 110), k };
-}
-function burnButtons() {
-  const p = burnPanel();
-  return [80, BURN_W - 80].map(bx => ({ x: p.x + bx * p.k, y: p.y + 122 * p.k, r: 36 * p.k }));
-}
-
-function drawBurnPanel() {
-  const g = game, a = g.burnAsk;
-  if (!a) return;
-  const p = burnPanel();
-  ctx.save();
-  ctx.translate(p.x, p.y);
-  ctx.scale(p.k, p.k);
-  const pulse = 1 + Math.sin(g.time * 6) * 0.03;
-  rr(0, 0, BURN_W, BURN_H, 22, 'rgba(255,250,240,0.96)');
-  ctx.strokeStyle = '#c8302e'; ctx.lineWidth = 4; ctx.stroke();
-  drawIcon('burn', 44, 44, 1.35 * pulse);
-  drawText(178, 34, tr('Dedzināt mežu?'), 26, '#9e1b22', null, 900);
-  const c = burnCost();
-  drawText(178, 66, c >= 1 ? tr('Spēks −{n}', { n: Math.round(c) }) : tr('Spēks mazliet kritīs'), 17, '#3a3f55', null, 700);
-  // time left to answer
-  ctx.fillStyle = 'rgba(200,48,46,0.3)'; ctx.fillRect(20, BURN_H - 10, (BURN_W - 40) * a.t / BURN_ASK_TIME, 4);
-  const yb = { x: 80, y: 122 }, nb = { x: BURN_W - 80, y: 122 };
-  circ(yb.x, yb.y, 36, '#3f9b4a');
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(yb.x - 15, yb.y + 1); ctx.lineTo(yb.x - 4, yb.y + 12); ctx.lineTo(yb.x + 15, yb.y - 10); ctx.stroke();
-  circ(nb.x, nb.y, 36, '#c8302e');
-  ctx.beginPath(); ctx.moveTo(nb.x - 12, nb.y - 12); ctx.lineTo(nb.x + 12, nb.y + 12); ctx.moveTo(nb.x + 12, nb.y - 12); ctx.lineTo(nb.x - 12, nb.y + 12); ctx.stroke();
-  ctx.restore();
-}
-
 function answerAsk(yes) {
   const g = game, h = g.hero, a = g.ask;
   g.ask = null;
@@ -1990,18 +1959,12 @@ function answerAsk(yes) {
   }
   if (!yes) { g.askCd = 2.5; h.route = null; return; }
   if (a.kind === 'swim') { h.swimOK = true; h.swimOKT = 3; h.route = a.route; }
-  else { burnForest(a.at.x, a.at.y); h.route = null; }
 }
 
-const burnCost = () => game.hero.power * BURN_COST * (game.fx.armor > 0 ? 0.5 : 1);
-
-// Burn the forest around a point: costs strength, and the trees grow back later.
+// Burn the forest around a point (the torch, or landing in trees off the broom). It costs nothing,
+// and the trees grow back later.
 function burnForest(x, y) {
-  const g = game, h = g.hero, r = BURN_R;
-  const before = Math.floor(h.power);
-  h.power = Math.max(1, h.power - burnCost());
-  const shown = before - Math.floor(h.power);
-  if (shown > 0) popup(h.x, h.y - 110, '−' + shown, '#ff8a3d', 30);
+  const g = game, r = BURN_R;
   for (let cy = Math.floor((y - r) / CELL); cy <= Math.floor((y + r) / CELL); cy++) {
     for (let cx = Math.floor((x - r) / CELL); cx <= Math.floor((x + r) / CELL); cx++) {
       if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) continue;
@@ -2018,10 +1981,14 @@ function burnForest(x, y) {
         life: 1.4, max: 1.4, kind: 'puff', color: '#6d6a66', size: 16, rot: 0 });
     }
   }
+  dirtyForest(x, y, r);
   tone(180, 60, 0.5, 'sawtooth', 0.08);
   tone(90, 40, 0.6, 'square', 0.05, 0.05);
   g.dirty = true;
 }
+
+// The tiles showing the trees around (x, y): trees reach far up from where they stand.
+function dirtyForest(x, y, r) { dirtyGround(x - r - 70, y - r - 160, x + r + 70, y + r + 40); }
 
 function updateBurnt(dt) {
   const g = game, h = g.hero;
@@ -2032,6 +1999,7 @@ function updateBurnt(dt) {
     if (dist(x, y, h.x, h.y) < 70 || g.enemies.some(e => dist(e.x, e.y, x, y) < 45)) { b.t = 3; continue; }
     terrain[b.i] = T_FOREST; blocked[b.i] = 3;
     g.burnt.splice(k, 1);
+    dirtyForest(x, y, CELL);
   }
 }
 
@@ -2359,13 +2327,8 @@ function updateParticles(dt) {
 
 function updateCamera(dt) {
   const g = game;
-  let fx = g.cine ? g.cine.x : g.hero.x;
+  const fx = g.cine ? g.cine.x : g.hero.x;
   const fy = g.cine ? g.cine.y : g.hero.y - 30;
-  // While the big burn panel covers the left, keep Lāčplēsis in the free space to its right.
-  if (g.burnAsk) {
-    const p = burnPanel(), right = p.x + BURN_W * p.k;
-    if (VW - right > 140) fx -= ((right + VW) / 2 - VW / 2) / Z;
-  }
   const tx = clamp(fx - VW / Z / 2, 0, Math.max(0, WORLD_W - VW / Z)), ty = clamp(fy - VH / Z / 2, 0, Math.max(0, WORLD_H - VH / Z));
   const k = 1 - Math.exp(-(g.cine ? 2.5 : 6) * dt);
   cam.x += (tx - cam.x) * k;
@@ -2549,6 +2512,18 @@ function drawIcon(id, x, y, s = 1) {
       ell(0, 8, 5, 6, '#ffd84a');
       tri(-20, 18, -12, 18, -16, 4, '#2c6436'); tri(12, 18, 20, 18, 16, 4, '#2c6436');
       break;
+    case 'torch':   // a stick with a pitch-soaked wrap at the top, burning
+      ctx.rotate(0.25);
+      rr(-2.5, -6, 5, 26, 2, '#6b4424');
+      rr(-5, -11, 10, 8, 2.5, '#5a3f22');
+      ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-5, -8); ctx.lineTo(5, -6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -32); ctx.quadraticCurveTo(10, -22, 7, -14); ctx.quadraticCurveTo(4, -9, 0, -9);
+      ctx.quadraticCurveTo(-7, -9, -7, -15); ctx.quadraticCurveTo(-7, -21, -2, -24); ctx.quadraticCurveTo(-1, -19, 1, -19);
+      ctx.quadraticCurveTo(-1, -26, 0, -32); ctx.closePath();
+      ctx.fillStyle = '#ff8a3d'; ctx.fill();
+      ell(0, -14, 3.5, 4.5, '#ffd84a');
+      break;
     case 'crown':
       ctx.beginPath(); ctx.moveTo(-17, 10); ctx.lineTo(-19, -9); ctx.lineTo(-9, 0); ctx.lineTo(0, -15); ctx.lineTo(9, 0);
       ctx.lineTo(19, -9); ctx.lineTo(17, 10); ctx.closePath();
@@ -2648,6 +2623,13 @@ function drawPerson(o, opt, t) {
     drawIcon(opt.weapon, 4, -14, 1);
     ctx.restore();
   }
+  if (opt.torch) {   // in the other hand, with a flickering flame
+    ctx.save();
+    ctx.translate(-15 * f, -31 + step * 2);
+    ctx.scale(0.8, 0.8 * (1 + Math.sin(t * 17) * 0.05));
+    drawIcon('torch', 0, -12, 1);
+    ctx.restore();
+  }
   const hy = -55;
   if (opt.ears) {
     if (opt.earGlow) {
@@ -2702,7 +2684,7 @@ function heroLift() { return game.fx.broom > 0 ? 22 + Math.sin(game.time * 5) * 
 function heroLook(fx, glow) {
   return { ears: true, earGlow: glow, hair: '#d8a23f', tunic: '#f2ead6', cape: '#8c1d24',
     weapon: fx.club > 0 ? 'club' : fx.axe > 0 ? 'axe' : fx.sword > 0 ? 'sword' : null,
-    shield: fx.shield > 0, boots: fx.boots > 0, helmet: fx.helmet > 0, armor: fx.armor > 0 };
+    shield: fx.shield > 0, boots: fx.boots > 0, helmet: fx.helmet > 0, armor: fx.armor > 0, torch: fx.torch > 0 };
 }
 
 function drawHero(h, t) {
@@ -2931,8 +2913,8 @@ function updateSlam(e, dt) {
     sl.done = true;
     const sp = slamSpot(e), R = SLAM_R * S;
     tone(80, 40, 0.35, 'sine', 0.28); tone(160, 60, 0.18, 'triangle', 0.1);
-    for (let k = 0; k < 10; k++) {
-      const a = Math.PI + k / 9 * Math.PI, d = rand(30, R * 0.8);
+    for (let k = 0; k < 4; k++) {
+      const a = Math.PI + k / 3 * Math.PI, d = rand(30, R * 0.8);
       g.particles.push({ x: sp.x + Math.cos(a) * d, y: sp.y + Math.sin(a) * d * 0.3, vx: Math.cos(a) * 60, vy: -rand(20, 50),
         life: rand(0.6, 1), max: 1, kind: 'puff', color: '#efe6d2', size: rand(12, 18), rot: 0 });
     }
@@ -3088,15 +3070,19 @@ function giantHead(look, x, y, k, mood, t, squash) {
   ctx.restore();
 }
 
+function jodsPose(sl) {
+  return !sl ? 'idle' : sl.t < SLAM_WINDUP ? 'windup' : sl.t < SLAM_WINDUP + SLAM_SWING ? 'swing' : 'slam';
+}
+
+// Jods is the biggest and most detailed figure in the game, so his body, necks and heads are drawn
+// into a canvas of their own at most JODS_FPS times a second (and at once when his pose, his
+// facing or a head changes) and copied every frame in between; he still moves smoothly, only that
+// part's own animation steps. His arms and weapons reach far out, which would make that canvas
+// mostly empty and slow to copy, and they are only a few shapes, so they and the shock on the
+// ground are drawn live, behind and in front of the body as before.
+const JODS_FPS = 12;
 function drawJods(e, t) {
-  const look = e.look, S = e.gs, sl = e.slam;
-  let pose = 'idle', glow = 0;
-  if (sl) {
-    if (sl.t < SLAM_WINDUP) { pose = 'windup'; glow = sl.t / SLAM_WINDUP; }
-    else if (sl.t < SLAM_WINDUP + SLAM_SWING) pose = 'swing';
-    else pose = 'slam';
-  }
-  const sitting = e.sitT > 0, walking = e.moving && !sitting;
+  const S = e.gs, sl = e.slam;
   // the shock where the club lands (on the ground, not turned); there's no warning mark before it
   if (sl && sl.done && e.fleeing === undefined) {
     const sp = slamSpot(e), q = clamp((sl.t - SLAM_WINDUP - SLAM_SWING) / 0.6, 0, 1), R = SLAM_R * S;
@@ -3106,6 +3092,43 @@ function drawJods(e, t) {
     ctx.beginPath(); ctx.ellipse(0, 0, R * (0.6 + q * 0.6), R * 0.5 * (0.6 + q * 0.6), 0, 0, TAU); ctx.stroke();
     ctx.restore();
   }
+  if (JODS_LIVE) { for (const part of ['back', 'body', 'front']) drawJodsFigure(e, t, part); return; }
+  const zoom = DPR * Z, pose = jodsPose(sl);
+  const key = [pose, e.face, e.sitT > 0, e.fleeing !== undefined, sl ? sl.arm + ',' + sl.k : '',
+    e.heads.map(hd => (hd.beaten ? 'b' : hd.sleepT > 0 ? 's' : '') + (hd.squash > 0 ? 'q' : '')).join('')].join('|');
+  let sp = e.sprite;
+  if (!sp || sp.zoom !== zoom || sp.key !== key || t - sp.t >= 1 / JODS_FPS || t < sp.t) {
+    // the box the body is drawn in, in world units round his feet: the cloak, the legs (sitting
+    // too) and the heads with their dizzy stars
+    let hx = 0, hy = 0;
+    for (const p of e.headPos) { hx = Math.max(hx, Math.abs(p.x)); hy = Math.min(hy, p.y); }
+    const W = Math.max(110 * S, hx * 1.1 + 40 * S), y0 = Math.min(-200 * S, hy - 70 * S), y1 = 45 * S;
+    const cw = Math.ceil(2 * W * zoom), ch = Math.ceil((y1 - y0) * zoom);
+    if (!sp || sp.c.width < cw || sp.c.height < ch || sp.zoom !== zoom) {
+      const c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      sp = e.sprite = { c };
+    }
+    const main = ctx;
+    ctx = sp.c.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, sp.c.width, sp.c.height);
+    ctx.setTransform(zoom, 0, 0, zoom, W * zoom, -y0 * zoom);
+    drawJodsFigure(e, t, 'body');
+    ctx = main;
+    Object.assign(sp, { zoom, key, t, x0: -W, y0, w: sp.c.width / zoom, h: sp.c.height / zoom });
+  }
+  drawJodsFigure(e, t, 'back');
+  ctx.drawImage(sp.c, sp.x0, sp.y0, sp.w, sp.h);
+  drawJodsFigure(e, t, 'front');
+}
+
+// part: 'back' (shadow and what's behind him), 'body' (legs, body, necks and heads: the cached
+// part) or 'front' (what's in front of him)
+function drawJodsFigure(e, t, part) {
+  const look = e.look, S = e.gs, sl = e.slam, pose = jodsPose(sl);
+  const glow = pose === 'windup' ? sl.t / SLAM_WINDUP : 0;
+  const sitting = e.sitT > 0, walking = e.moving && !sitting;
   ctx.save();
   ctx.scale(e.face * S, S);
   if (sitting) { ctx.translate(0, 26); ctx.scale(1.06, 0.84); }
@@ -3126,24 +3149,21 @@ function drawJods(e, t) {
     const aa = side > 0 ? GIANT_ARM[ps] : Math.PI - GIANT_ARM[ps], ca = side > 0 ? GIANT_CLUB[ps] : Math.PI - GIANT_CLUB[ps];
     const hand = giantArm(look, sx, -168, aa);
     giantWeapon(look, hand.x, hand.y, ca, 130, side === swingArm ? glow : 0);
-    if (ps === 'swing') {
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 10; ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (side > 0) ctx.arc(66, -168, 175, -2.3, -0.3); else ctx.arc(-66, -168, 175, Math.PI + 0.3, Math.PI + 2.3);
-      ctx.stroke();
-    }
   };
   const inFront = side => { const r = reachOf(side); return r ? !r.behind : side > 0; };
   const step = walking ? Math.sin(t * 7) : 0, breathe = Math.sin(t * 2) * 1.5;
-  shadow(82, 18);
-  // weapons and arms that go behind the body
-  if (!sitting) {
-    if (look.two) { for (const side of [1, -1]) if (!inFront(side)) weaponArm(side); }
-    else {
-      giantArm(look, -64, -166, 1.95 + Math.sin(t * 2) * 0.04, 62);
-      if (!inFront(1)) weaponArm(1);
+  if (part === 'back') {
+    shadow(82, 18);
+    // weapons and arms that go behind the body
+    if (!sitting) {
+      if (look.two) { for (const side of [1, -1]) if (!inFront(side)) weaponArm(side); }
+      else {
+        giantArm(look, -64, -166, 1.95 + Math.sin(t * 2) * 0.04, 62);
+        if (!inFront(1)) weaponArm(1);
+      }
     }
   }
+  if (part === 'body') {
   if (look.extra === 'cloak') {
     ctx.beginPath(); ctx.moveTo(-76, -176); ctx.quadraticCurveTo(-96, -90, -80, -40); ctx.lineTo(80, -40); ctx.quadraticCurveTo(96, -90, 76, -176); ctx.closePath();
     ctx.fillStyle = '#6e1a1d'; ctx.fill();
@@ -3178,12 +3198,15 @@ function drawJods(e, t) {
       : sl && sl.k === k && sl.t < SLAM_WINDUP + SLAM_SWING ? 'shout' : k % 3 === 1 ? 'grin' : 'grump';
     giantHead(look, p.x * e.face / S, p.y / S, k, mood, t + k, hd.squash);
   }
+  }
   // weapons in front of the body; sitting down he drops them beside him
-  if (sitting) {
-    giantWeapon(look, 110, -20, 0.1, 130, 0);
-    if (look.two) giantWeapon(look, -110, -20, Math.PI - 0.1, 130, 0);
-  } else if (look.two) { for (const side of [1, -1]) if (inFront(side)) weaponArm(side); }
-  else if (inFront(1)) weaponArm(1);
+  if (part === 'front') {
+    if (sitting) {
+      giantWeapon(look, 110, -20, 0.1, 130, 0);
+      if (look.two) giantWeapon(look, -110, -20, Math.PI - 0.1, 130, 0);
+    } else if (look.two) { for (const side of [1, -1]) if (inFront(side)) weaponArm(side); }
+    else if (inFront(1)) weaponArm(1);
+  }
   ctx.restore();
 }
 
@@ -3567,7 +3590,8 @@ const DECOR_PAD = 3;
 const DECOR_VARIES = new Set(['pine', 'apple', 'flowers']);   // the only ones whose look depends on d.v
 const decorSprites = new Map();
 let decorZoom = 0;
-function drawDecorSprite(d) {
+// (ox, oy) is the world point on a whole pixel of the canvas being drawn: the camera, or a tile's corner.
+function drawDecorSprite(d, ox = cam.x, oy = cam.y) {
   const box = DECOR_BOX[d.type];
   if (!box) { drawDecor(d); return; }
   const zoom = DPR * Z;
@@ -3588,7 +3612,7 @@ function drawDecorSprite(d) {
     decorSprites.set(key, sp);
   }
   // on whole screen pixels, so it's a straight copy instead of a resampled one
-  const sx = cam.x + Math.round((d.x + sp.x0 - cam.x) * zoom) / zoom, sy = cam.y + Math.round((d.y + sp.y0 - cam.y) * zoom) / zoom;
+  const sx = ox + Math.round((d.x + sp.x0 - ox) * zoom) / zoom, sy = oy + Math.round((d.y + sp.y0 - oy) * zoom) / zoom;
   ctx.drawImage(sp.c, sx, sy, sp.w, sp.h);
 }
 
@@ -3767,7 +3791,9 @@ function drawBridge(b) {
 const CROPS = {
   wheat: ['#e8c95a', '#c9a63a', '#f3dc84'], rye: ['#d6c470', '#a99a48', '#e6d78f'], flax: ['#8fb4e8', '#5d86c2', '#b9d2f4'],
 };
-function drawField(f, t) {
+// Drawn once into the ground tiles, so the rows stand still.
+function drawField(f) {
+  const t = 0;
   const C = CROPS[f.crop];
   ctx.save();
   ctx.translate(f.x, f.y);
@@ -3974,17 +4000,22 @@ function pathPoly(pts) {
 }
 
 // ---------- Ground tiles ----------
-// The ground, rivers, lakes, islands and the water's names don't move, so they are drawn once into
-// tiles at the screen's real resolution and copied on whole pixels; stretching the blurred ground
-// picture over the whole screen every frame was the next biggest cost after the trees. Waves, the
-// rivers' flow, the waterfall, bridges and crop fields move or sit on top, and are drawn each frame.
+// The ground, rivers, lakes, islands, the water's names, the crop fields and all the scenery
+// (trees, flowers, rocks, stumps) don't move, so they are drawn once into tiles at the canvas's
+// resolution and copied on whole pixels; stamping a couple of thousand scenery sprites and the
+// fields' rows every frame was most of the drawing time on a tablet. Scenery is drawn under
+// everything that moves anyway. Waves, the rivers' flow, the waterfall and bridges move or sit
+// on top, and are drawn each frame. Burning or regrowing forest redraws the tiles it touches
+// (dirtyGround). All of a place's tiles are made ahead, one a frame, so being knocked across the
+// place by Jods doesn't stall on making new ones.
 const TILE = 256;                     // world units per tile
 const TILE_BUDGET = 64e6;             // bytes of tiles kept; the oldest go first
 const groundTiles = new Map();
 let tileZoom = 0, tileBytes = 0;
 
-// Everything that goes into a ground tile, drawn with the current transform.
-function drawGroundLayer() {
+// Everything that goes into ground tile (tx, ty), drawn with the current transform.
+function drawGroundLayer(tx, ty) {
+  const x0 = tx * TILE, y0 = ty * TILE, x1 = x0 + TILE, y1 = y0 + TILE;
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(L.groundCanvas, 0, 0, GW * CELL, GH * CELL);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -4011,6 +4042,38 @@ function drawGroundLayer() {
   }
   for (const l of L.lakes) if (l.name) drawWaterName(l.x, clamp(l.y, 110, WORLD_H - 110), 0, l.name, 30);
   for (const r of L.rivers) if (r.name) drawRiverName(r);
+  for (const f of L.fields) {
+    const fr = Math.hypot(f.w, f.h) / 2 + 40;
+    if (f.x + fr > x0 && f.x - fr < x1 && f.y + fr > y0 && f.y - fr < y1) drawField(f);
+  }
+  ctx.imageSmoothingEnabled = false;
+  for (const d of L.decor) {
+    const b = decorReach(d);
+    if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue;
+    if (d.cell !== undefined && terrain[d.cell] !== T_FOREST) drawStump(d);
+    else drawDecorSprite(d, x0, y0);
+  }
+  ctx.imageSmoothingEnabled = true;
+  if (!waterAnim) drawWater(0, x0, y0, x1, y1);
+}
+
+// The world box a piece of scenery is drawn in (worked out once).
+function decorReach(d) {
+  if (!d.reach) {
+    const b = DECOR_BOX[d.type] || [-60, -150, 60, 20], s = d.s || 1, m = DECOR_PAD + 2;
+    d.reach = [d.x + b[0] * s - m, d.y + b[1] * s - m, d.x + b[2] * s + m, d.y + b[3] * s + m];
+  }
+  return d.reach;
+}
+
+// Throw away the tiles that overlap a world box, so they are drawn again with the change.
+function dirtyGround(x0, y0, x1, y1) {
+  for (let ty = Math.max(0, Math.floor(y0 / TILE)); ty <= Math.floor(y1 / TILE); ty++) {
+    for (let tx = Math.max(0, Math.floor(x0 / TILE)); tx <= Math.floor(x1 / TILE); tx++) {
+      const key = tx + ',' + ty, tile = groundTiles.get(key);
+      if (tile) { groundTiles.delete(key); tileBytes -= tile.bytes; }
+    }
+  }
 }
 
 function groundTile(tx, ty, zoom) {
@@ -4022,7 +4085,7 @@ function groundTile(tx, ty, zoom) {
   const main = ctx;
   ctx = c.getContext('2d');
   ctx.setTransform(zoom, 0, 0, zoom, -tx * TILE * zoom, -ty * TILE * zoom);
-  drawGroundLayer();
+  drawGroundLayer(tx, ty);
   ctx = main;
   tile = { c, bytes: c.width * c.height * 4 };
   groundTiles.set(key, tile);
@@ -4043,15 +4106,22 @@ function drawGroundTiles() {
   const tx0 = Math.max(0, Math.floor(cam.x / TILE)), ty0 = Math.max(0, Math.floor(cam.y / TILE));
   const tx1 = Math.min(Math.ceil(WORLD_W / TILE) - 1, Math.floor((cam.x + VW / Z) / TILE));
   const ty1 = Math.min(Math.ceil(WORLD_H / TILE) - 1, Math.floor((cam.y + VH / Z) / TILE));
+  // Arriving somewhere, the whole view is still under the fade-in, so its tiles are made a few a
+  // frame instead of all in the first one, which stalled for a moment on a tablet.
+  let spare = game.fade > 0.2 ? 3 : Infinity;
   ctx.imageSmoothingEnabled = false;
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
+      if (!groundTiles.has(tx + ',' + ty) && spare-- <= 0) continue;
       const tile = groundTile(tx, ty, zoom);
       const x = cam.x + Math.round((tx * TILE - cam.x) * zoom) / zoom, y = cam.y + Math.round((ty * TILE - cam.y) * zoom) / zoom;
       ctx.drawImage(tile.c, x, y, tile.c.width / zoom, tile.c.height / zoom);
     }
   }
   ctx.imageSmoothingEnabled = true;
+  if (spare <= 0) return;
+  // then one more: first any just outside the view, ready for when he walks on, and otherwise
+  // the nearest one still missing anywhere in the place, while they all fit in the budget
   for (let ty = ty0 - 1; ty <= ty1 + 1; ty++) {
     for (let tx = tx0 - 1; tx <= tx1 + 1; tx++) {
       if (tx < 0 || ty < 0 || tx * TILE >= WORLD_W || ty * TILE >= WORLD_H || groundTiles.has(tx + ',' + ty)) continue;
@@ -4059,6 +4129,16 @@ function drawGroundTiles() {
       return;
     }
   }
+  if (tileBytes + (Math.ceil(TILE * zoom) + 1) ** 2 * 4 > TILE_BUDGET) return;
+  const cx = (tx0 + tx1) / 2, cy = (ty0 + ty1) / 2;
+  let best = null, bd = Infinity;
+  for (let ty = 0; ty * TILE < WORLD_H; ty++) {
+    for (let tx = 0; tx * TILE < WORLD_W; tx++) {
+      const d = (tx - cx) ** 2 + (ty - cy) ** 2;
+      if (d < bd && !groundTiles.has(tx + ',' + ty)) { bd = d; best = [tx, ty]; }
+    }
+  }
+  if (best) groundTile(best[0], best[1], zoom);
 }
 
 function drawWorld() {
@@ -4072,30 +4152,7 @@ function drawWorld() {
 
   drawGroundTiles();
 
-  // sea waves
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-  for (const w of L.waves) {
-    if (!inView(w.x, w.y)) continue;
-    const o = Math.sin(t * 1.5 + w.x * 0.01) * 6;
-    ctx.beginPath(); ctx.arc(w.x + o, w.y, 12 * w.s, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
-  }
-  // the water flowing down the rivers
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  for (const r of L.rivers) {
-    pathPoly(r.pts); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 3; ctx.setLineDash([20, 40]);
-    ctx.lineDashOffset = -t * 30; ctx.stroke(); ctx.setLineDash([]);
-  }
-  if (L.falls) drawFalls(L.falls, t);
-  for (const b of L.bridges) drawBridge(b);
-  for (const f of L.fields) if (inView(f.x, f.y)) drawField(f, t);
-
-  ctx.imageSmoothingEnabled = false;   // scenery sprites are copied pixel for pixel
-  for (const d of L.decor) {
-    if (!inView(d.x, d.y)) continue;
-    if (d.cell !== undefined && terrain[d.cell] !== T_FOREST) drawStump(d);
-    else drawDecorSprite(d);
-  }
-  ctx.imageSmoothingEnabled = true;
+  if (waterAnim) drawWater(t, vx0, vy0, vx1, vy1);
   if (L.village && inView(L.village.x, L.village.y)) drawTown(L.village);
   if (L.spring && inView(L.spring.x, L.spring.y)) drawSpring(t);
 
@@ -4135,11 +4192,6 @@ function drawWorld() {
     if (m.say > 0) speech(m.x, m.y - 104, tr(m.line));
     else if (m.cd <= 0) { circ(m.x, m.y - 94, 17, 'rgba(255,250,240,0.92)'); drawIcon(m.gift, m.x, m.y - 94, 0.6); }
   }
-  if (g.burnAsk) {
-    const a = g.burnAsk, gs = 70 + Math.sin(t * 8) * 8;
-    ctx.drawImage(glowGold, a.at.x - gs / 2, a.at.y - 30 - gs / 2, gs, gs);
-    drawIcon('burn', a.at.x, a.at.y - 30 + Math.sin(t * 5) * 3, 0.8);
-  }
   drawHint(t);
 
   // particles and popups
@@ -4161,6 +4213,28 @@ function drawWorld() {
     ctx.fillStyle = `rgba(255,248,232,${clamp(g.fade / 0.7, 0, 1)})`;
     ctx.fillRect(0, 0, VW, VH);
   }
+}
+
+// Sea waves, the water flowing down the rivers, the waterfall and the bridges over them, for the
+// part of the world in the box. While the water moves this is drawn every frame on top of the
+// ground tiles; once it is stood still (frames too slow, see watchSpeed) it is drawn once into
+// the tiles instead, at t = 0.
+function drawWater(t, x0, y0, x1, y1) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  for (const w of L.waves) {
+    if (w.x < x0 - 30 || w.x > x1 + 30 || w.y < y0 - 30 || w.y > y1 + 30) continue;
+    const o = Math.sin(t * 1.5 + w.x * 0.01) * 6;
+    ctx.beginPath(); ctx.arc(w.x + o, w.y, 12 * w.s, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+  }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const r of L.rivers) {
+    const m = r.w + 10;
+    if (r.x1 + m < x0 || r.x0 - m > x1 || r.y1 + m < y0 || r.y0 - m > y1) continue;
+    pathPoly(r.pts); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 3; ctx.setLineDash([20, 40]);
+    ctx.lineDashOffset = -t * 30; ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (L.falls) drawFalls(L.falls, t);
+  for (const b of L.bridges) drawBridge(b);
 }
 
 function drawWaterName(x, y, a, name, size) {
@@ -4407,7 +4481,6 @@ function drawHUD() {
   const nr = newGameRect();
   circ(nr.x, nr.y, nr.r, 'rgba(255,250,240,0.92)');
   drawIcon('restart', nr.x, nr.y, 0.55);
-  drawBurnPanel();
   // banner
   if (g.banner) {
     const b = g.banner;
@@ -4508,11 +4581,10 @@ function drawAsk() {
   rr(x0, y0, w, 290, 22, 'rgba(255,250,240,0.97)');
   ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 4; ctx.stroke();
   drawIcon(a.kind, VW / 2, y0 + 50, 1.5);
-  const title = tr({ swim: 'Peldēt?', burn: 'Dedzināt mežu?', restart: 'Sākt no jauna?' }[a.kind]);
+  const title = tr({ swim: 'Peldēt?', restart: 'Sākt no jauna?' }[a.kind]);
   drawText(VW / 2, y0 + 105, title, 32, '#9e1b22', null, 900);
   const cost = a.kind === 'swim' ? tr('Ūdenī spēks ātri krīt')
-    : a.kind === 'restart' ? tr('Viss sāksies no paša sākuma')
-    : burnCost() >= 1 ? tr('Spēks samazināsies par {n}', { n: Math.round(burnCost()) }) : tr('Spēks mazliet samazināsies');
+    : tr('Viss sāksies no paša sākuma');
   drawText(VW / 2, y0 + 140, cost, 18, '#3a3f55', null, 700);
   const [yb, nb] = askButtons();
   circ(yb.x, yb.y, yb.r, '#3f9b4a');
@@ -4754,7 +4826,7 @@ function moveTo(sx, sy) {
     }
   }
   h.routeTarget = { x: wx, y: wy };
-  if (ti >= 0 && blocked[ti] === 3 && !mode && dist(wx, wy, h.x, h.y) < BURN_REACH) { h.route = [{ x: wx, y: wy }]; return; }
+  if (ti >= 0 && blocked[ti] === 3 && !mode && g.fx.torch > 0 && dist(wx, wy, h.x, h.y) < BURN_REACH) { h.route = [{ x: wx, y: wy }]; return; }
   if (ti >= 0 && terrain[ti] === T_EDGE && dist(wx, wy, h.x, h.y) < BURN_REACH) edgeSay();
   const path = findPath(h.x, h.y, wx, wy, mode);
   // Only short detours are found automatically, so the labyrinth still has to be explored.
@@ -4789,11 +4861,6 @@ canvas.addEventListener('pointerdown', e => {
   }
   if (state === 'pause') { setState('play'); return; }
   if (state === 'map') { mapDrag = { x, y, pan: game.mapPan, moved: false }; return; }
-  if (game.burnAsk) {
-    const [yb, nb] = burnButtons();
-    if (dist(x, y, yb.x, yb.y) < yb.r + 10) { answerBurn(true); return; }
-    if (dist(x, y, nb.x, nb.y) < nb.r + 10) { answerBurn(false); return; }
-  }
   const mr = muteRect(), m = mmRect();
   if (dist(x, y, mr.x, mr.y) < mr.r + 6) { muted = !muted; return; }
   const nr = newGameRect();
@@ -4846,10 +4913,6 @@ window.addEventListener('keydown', e => {
     else if (e.code === 'ArrowRight' || e.code === 'ArrowDown' || e.code === 'KeyD' || e.code === 'KeyS') mapStep(1);
     return;
   }
-  if (state === 'play' && game.burnAsk) {
-    if (['Enter', 'Space', 'KeyY', 'KeyJ'].includes(e.code)) { answerBurn(true); return; }
-    if (e.code === 'KeyN' || e.code === 'Escape') { answerBurn(false); return; }
-  }
   if (state === 'play') {
     if (e.code === 'KeyM') { openMap(); return; }
     if (e.code === 'KeyR') { openAsk({ kind: 'restart' }); return; }
@@ -4862,10 +4925,35 @@ window.addEventListener('blur', () => { keys.clear(); if (state === 'play') { se
 window.addEventListener('beforeunload', () => { if (game && state !== 'title') writeSave(); });
 
 // ---------- Main loop ----------
-let last = performance.now();
+// While playing, the frame rate is watched over a few seconds at a time: below about 40 frames a
+// second the water first stands still (waves, river flow and the waterfall stop moving and go
+// into the ground tiles with the bridges), and then the canvas resolution is stepped down. None
+// of it goes back (so it doesn't flicker between two). Frames after a long gap (a hidden tab, the map) don't count.
+const SLOW_FRAME = 1 / 40, RES_STEPS = [1.5, 1.25, 1];
+let last = performance.now(), slowT = 0, slowN = 0;
+function watchSpeed(gap) {
+  if (state !== 'play' || gap > 0.25) return;
+  slowT += gap; slowN++;
+  if (slowT < 3) return;
+  if (slowT / slowN > SLOW_FRAME) {
+    const lower = RES_STEPS.find(r => r < DPR - 0.01);
+    if (waterAnim) { waterAnim = false; clearGroundTiles(); }
+    else if (lower) { resCap = lower; resize(); }
+  }
+  slowT = 0; slowN = 0;
+}
+let fpsAvg = 60;
+function drawFps(gap) {
+  if (gap > 0 && gap < 1) fpsAvg += (1 / gap - fpsAvg) * 0.05;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  rr(8, VH - 34, 170, 26, 8, 'rgba(20,30,50,0.7)');
+  ctx.font = `700 15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff';
+  ctx.fillText(Math.round(fpsAvg) + ' fps · ' + DPR + '×' + (waterAnim ? '' : ' · ~'), 16, VH - 21);
+}
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const gap = (now - last) / 1000, dt = Math.min(0.05, gap);
   last = now;
+  watchSpeed(gap);
   if (state === 'play') update(dt);
   const overMap = state === 'ask' && game.ask && game.ask.from === 'map';
   if (state !== 'map' && !overMap) drawWorld();
@@ -4874,6 +4962,7 @@ function frame(now) {
   else if (state === 'pause') { drawHUD(); drawPause(); }
   else if (state === 'ask') { if (overMap) drawMapScreen(); else drawHUD(); drawAsk(); }
   else if (state === 'map') drawMapScreen();
+  if (SHOW_FPS) drawFps(gap);
   requestAnimationFrame(frame);
 }
 

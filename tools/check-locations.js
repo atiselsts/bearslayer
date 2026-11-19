@@ -1,6 +1,6 @@
 // Headless check of every location: builds each one, checks that its key spots can be walked to
 // from the start, plays a little, beats every boss with full strength, opens every golden chest,
-// and checks the burn question and the final place's unlock rule.
+// and checks burning with the torch and the final place's unlock rule.
 // Usage: node tools/check-locations.js
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
@@ -58,10 +58,9 @@ for (const def of LOCATIONS) {
     if (!game.items.some(it => it.slot === k)) fail(def.id + ': island gift ' + sp.id + ' missing');
   }
   if (game.maidens.length !== def.maidens) fail(def.id + ': ' + game.maidens.length + ' tautumeitas instead of ' + def.maidens);
-  // maldugunis float only over the swamps, and every place with swamps has some
+  // maldugunis float only over the swamps (a swamp may have none)
   {
     const wisps = game.enemies.filter(e => e.type === 'wisp');
-    if (L.swampCells.length && !wisps.length) fail(def.id + ': swamps but no maldugunis');
     if (!L.swampCells.length && wisps.length) fail(def.id + ': maldugunis without swamps');
     for (const w of wisps) if (!inSwamp(w.home.x, w.home.y)) fail(def.id + ': a malduguns starts outside the swamp');
     for (let f = 0; f < 120; f++) { updateEnemies(1 / 10); for (const w of wisps) if (w.target && !inSwamp(w.target.x, w.target.y)) { fail(def.id + ': a malduguns heads out of the swamp'); f = 999; break; } }
@@ -110,7 +109,7 @@ openMap(); drawMapScreen(); mapStep(1); drawMapScreen(); travel(game.mapSel);
   if (state !== 'play' || game.progress.opened.size !== 0 || game.loc.id !== LOCATIONS[0].id) fail('restarting from the map does not start a new game (had ' + had + ' places done)');
   game.progress.opened = new Set(LOCATIONS.map(l => l.id));
 }
-offerBurn({ x: 100, y: 100 }); drawWorld(); drawHUD(); answerBurn(false);
+game.fx.torch = 5; drawWorld(); drawHUD(); game.fx.torch = 0;
 drawTitle();
 
 // every Jods is a giant whose club slam pushes him back where he stood (in front, behind, to the side),
@@ -194,25 +193,44 @@ for (const def of LOCATIONS) {
 }
 if (game.progress.opened.size !== LOCATIONS.length) fail('only ' + game.progress.opened.size + ' golden chests opened');
 
-// burning: pushing straight into maze trees asks; the edge belt never does
-enterLocation('tervete'); state = 'play'; game.enemies = [];
+// burning: with the torch, pushing into maze trees burns them at once and costs nothing; without
+// it nothing burns; the edge belt never burns
+enterLocation('tervete'); state = 'play'; game.enemies = []; game.items = []; game.chests = []; game.maidens = [];
 const h = game.hero;
-const pushInto = t => { for (let i = 0; i < GW * GH; i++) {
+const pushInto = (t, torch) => { for (let i = 0; i < GW * GH; i++) {
   if (blocked[i] !== 0 || !L.reach[i] || terrain[i + 1] !== t || terrain[i + 2] !== t) continue;
   h.x = (i % GW + 0.5) * CELL; h.y = (Math.floor(i / GW) + 0.5) * CELL; h.route = null; game.askCd = 0;
-  state = 'play'; keys.clear(); keys.add('ArrowRight'); game.burnAsk = null;
-  for (let f = 0; f < 90 && !game.burnAsk; f++) update(1 / 60);
+  game.fx.torch = torch ? 10 : 0; game.fx.broom = 0; game.items = []; game.chests = []; game.spawnT.item = 99;
+  state = 'play'; keys.clear(); keys.add('ArrowRight');
+  const n = game.burnt.length, p = h.power;
+  for (let f = 0; f < 90 && game.burnt.length === n; f++) update(1 / 60);
   keys.clear(); if (state !== 'play') fail('burning stopped the game');
-  const asked = !!game.burnAsk; if (asked) answerBurn(false); return asked; } };
-if (!pushInto(T_FOREST)) fail('pushing into forest does not ask to burn');
-if (pushInto(T_EDGE)) fail('the edge forest asks to burn');
-// saying yes burns while the game keeps going; walking away drops the question
-{ const i0 = (() => { for (let i = 0; i < GW * GH; i++) if (blocked[i] === 0 && L.reach[i] && terrain[i + 1] === T_FOREST && terrain[i + 2] === T_FOREST) return i; })();
-  h.x = (i0 % GW + 0.5) * CELL; h.y = (Math.floor(i0 / GW) + 0.5) * CELL; game.askCd = 0;
-  offerBurn({ x: h.x + 50, y: h.y }); const n = game.burnt.length; answerBurn(true);
-  if (game.burnt.length === n) fail('yes did not burn');
-  offerBurn({ x: h.x + 50, y: h.y }); h.x += 400; update(1 / 60);
-  if (game.burnAsk) fail('the burn question stays after walking away'); }
+  if (h.power < p * 0.99) fail('burning cost strength');
+  return game.burnt.length > n; } };
+{ // the burnt gap shows: the ground tiles under it (which hold the trees) are made again
+  for (let ty = 0; ty * TILE < WORLD_H; ty++) for (let tx = 0; tx * TILE < WORLD_W; tx++) groundTile(tx, ty, DPR * Z);
+  if (!pushInto(T_FOREST, true)) fail('pushing into forest with the torch does not burn it');
+  const b = game.burnt[game.burnt.length - 1], bx = (b.i % GW + 0.5) * CELL, by = (Math.floor(b.i / GW) + 0.5) * CELL;
+  if (groundTiles.has(Math.floor(bx / TILE) + ',' + Math.floor(by / TILE))) fail('burning does not redraw the trees');
+}
+if (game.fx.torch > 10 - TORCH_BURN) fail('burning does not use up the torch');
+if (pushInto(T_FOREST, false)) fail('forest burns without the torch');
+if (pushInto(T_EDGE, true)) fail('the edge forest burns');
+game.fx.torch = 0;
+
+// slow frames first stand the water still (drawn into the tiles), and only then lower the resolution
+{
+  newGame(false); game.progress.opened = new Set(LOCATIONS.map(l => l.id)); enterLocation('kuldiga');
+  state = 'play'; waterAnim = true; resCap = 1.5;
+  for (let k = 0; k < 120; k++) watchSpeed(1 / 20);
+  if (waterAnim) fail('slow frames do not stand the water still');
+  if (resCap !== 1.5) fail('the resolution drops before the water stands still');
+  drawWorld(); drawHUD();
+  for (let k = 0; k < 120; k++) watchSpeed(1 / 20);
+  if (resCap === 1.5 && DPR > 1) fail('the resolution does not drop when the water is already still');
+  for (let k = 0; k < 120; k++) watchSpeed(1 / 60);
+  waterAnim = true; resCap = 1.5; resize(); clearGroundTiles();
+}
 
 // fighting strength isn't rounded down: a 5 with a sword (7.5) beats a 7, and a tie still pushes
 {
@@ -254,6 +272,24 @@ if (pushInto(T_EDGE)) fail('the edge forest asks to burn');
   clearSave(); save = null; newGame(false);
   game.progress.opened = new Set(LOCATIONS.map(l => l.id));
 }
+// a new Jods's heads come from his fighting strength as he arrives, so the iron club counts too
+{
+  newGame(false); game.progress.opened = new Set(LOCATIONS.map(l => l.id));
+  const h = game.hero; h.power = 20; h.maxPower = 20; game.ally = null;
+  for (const k in game.fx) game.fx[k] = 0;
+  game.jods = {}; enterLocation('tervete');
+  const plain = game.enemies.find(e => e.type === 'jods').heads.map(hd => hd.value);
+  game.fx.club = 10; game.jods = {}; enterLocation('tervete');
+  const club = game.enemies.find(e => e.type === 'jods').heads.map(hd => hd.value);
+  if (!club.every((v, k) => Math.abs(v - plain[k] * 2) <= 1)) fail('Jods heads ignore the club: ' + plain + ' and ' + club);
+  game.fx.club = 0;
+  // tautumeitas never hand out the torch
+  for (let k = 0; k < 40; k++) {
+    enterLocation('lielvarde');
+    if (game.maidens.some(m => m.gift === 'torch')) { fail('a tautumeita has a torch for him'); break; }
+  }
+  newGame(false); game.progress.opened = new Set(LOCATIONS.map(l => l.id));
+}
 // around an unbeaten boss nothing is stronger than it (Jods: his strongest head): not at the start,
 // not after Lāčplēsis grows a lot (off-screen creatures that would outgrow it go away), not from new spawns
 for (const id of LOCATIONS.filter(l => l.boss).map(l => l.id)) {
@@ -271,7 +307,10 @@ for (const id of LOCATIONS.filter(l => l.boss).map(l => l.id)) {
   if (over()) fail(id + ': a creature stronger than the boss after he grew');
   const b = game.enemies.find(e => e.kind === 'boss');
   if (!b.heads && game.enemies.filter(e => e.kind === 'enemy').length < 4) fail(id + ': hardly any creatures left around a boss that grows with him');
-  if (!game.enemies.some(e => e.kind === 'enemy')) fail(id + ': no creatures left at all');
+  // round a Jods he has far outgrown the place may empty out; once the boss is beaten they come back
+  defeatBoss(b);
+  for (let f = 0; f < 200; f++) { game.rescaleT = 0; updateRescale(0.1); updateSpawning(0.1); }
+  if (game.enemies.filter(e => e.kind === 'enemy').length < 4) fail(id + ': creatures do not come back after the boss is beaten');
 }
 newGame(false); game.progress.opened = new Set(LOCATIONS.map(l => l.id));
 // #visas opens every place in a fresh game, without beating anything
