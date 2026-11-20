@@ -11,6 +11,8 @@ Language). `spec.md` is the full design and `README.md` covers how it plays and 
   `// ---------- Section ----------` comments
 - `tools/check-locations.js`: headless check of every location, bosses, burning and unlocking
 - `tools/make_geo.py`: regenerates the Latvia map data in `game.js` from Natural Earth GeoJSON
+- `tools/bench.js` with `tools/bench.html`: speed benchmark, frame times in every place in headless
+  Chromium (`--attr` shows which drawing functions the time goes to)
 
 ## Running and checking
 
@@ -19,6 +21,10 @@ bosses, terrain or movement, run:
 
     node --check game.js
     node tools/check-locations.js
+
+Before and after a change meant to speed things up, compare the totals of
+
+    node tools/bench.js
 
 ## How it fits together
 
@@ -40,20 +46,24 @@ bosses, terrain or movement, run:
   which draws each type, size and look variant once into a small canvas and then copies it on whole
   pixels. A new decor type needs its extent in `DECOR_BOX` (or it is drawn the slow way and gets a
   generous box in `decorReach()`), and `DECOR_VARIES` if its look depends on `d.v`.
-- The ground (ground picture, rivers, lakes, islands, water names, crop fields (off for now,
-  `CROP_FIELDS`) and all the scenery) is drawn once into 256-unit tiles by `drawGroundLayer()` and
-  copied each frame; a place's tiles are all made ahead, one a frame. Anything that moves or must
-  sit on top (waves, river flow, waterfall, bridges, the village, entities) is drawn per frame in
-  `drawWorld()`. Changing the ground or scenery of a place after it is built needs `dirtyGround()`
-  for that area (burning and regrowing forest use `dirtyForest()`), or `clearGroundTiles()` for all
-  of it.
+- The ground (ground picture, rivers, lakes, islands, water names, crop fields and all the
+  scenery) is drawn once into 256-unit tiles by `drawGroundLayer()` and copied each frame; a
+  place's tiles are all made ahead, one a frame. Each crop field is drawn once into its own canvas
+  (`fieldSprite()`) and stamped into the tiles. Fields have their own seed and come after the
+  swamps, which they keep off, so they don't move anything else in a layout. Anything that moves
+  or must sit on top (waves, river flow, waterfall, bridges, the ferry boat, the village, entities)
+  is drawn per frame in `drawWorld()`. Changing the ground or scenery of a place after it is built
+  needs `dirtyGround()` for that area (burning and regrowing forest use `dirtyForest()`), or
+  `clearGroundTiles()` for all of it.
 - Speed: the tablet was the slow case. The canvas resolution is capped at 1.5× (`resCap`). If
   frames stay under 40 a second, `watchSpeed()` first stands the water still (`waterAnim`: waves,
   river flow, the waterfall and bridges go into the ground tiles via `drawWater()`), then steps the
-  resolution down to 1.25× and 1×. Pixels filled,
-  not JS, are the cost, so keep per-frame drawing small. Jods's body and heads are cached in a
-  canvas redrawn 12 times a second (`JODS_FPS`); his arms and weapons stay live. The frame rate
-  shows in a corner for now (`SHOW_FPS`, `?fps=0` hides it); `?jods=live` turns the Jods cache off.
+  resolution down to 1.25× and 1×. Pixels filled, not JS, are the cost, so keep per-frame drawing
+  small: the canvas is opaque, the screen is only filled under the ground tiles while some aren't
+  made yet (`groundCovers()`), and the HUD's still parts are cached (`cachedHud()`). Jods's body
+  and heads are cached in a canvas redrawn 12 times a second (`JODS_FPS`); his arms and weapons
+  stay live. `?fps=1` shows
+  the frame rate in a corner (`SHOW_FPS`); `?jods=live` turns the Jods cache off.
 - The map screen draws `ovCanvas`, built once from the `LV_LL`, `NEIGH_LL`, `RIVERS_LL`, `LAKES_LL`
   and `REGION_GRID` data, which `tools/make_geo.py` generates. River widths are set by hand.
 - Language: every shown text goes through `tr()`, which looks the Latvian text up in the `EN`

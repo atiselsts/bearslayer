@@ -5,7 +5,9 @@
 
 // ---------- Canvas ----------
 const canvas = document.getElementById('game');
-let ctx = canvas.getContext('2d');   // `let`: scenery sprites are drawn by pointing it at a small canvas for a moment
+// Opaque: every screen paints all of it, and the browser then needn't blend it over the page.
+// `let`: scenery sprites are drawn by pointing it at a small canvas for a moment.
+let ctx = canvas.getContext('2d', { alpha: false });
 let VW = 0, VH = 0, DPR = 1, Z = 1;
 // The canvas is drawn at no more than 1.5 pixels per CSS pixel: a tablet's full 2× or 3× costs
 // two to four times as much to fill for a picture that hardly looks sharper. If frames still come
@@ -13,13 +15,13 @@ let VW = 0, VH = 0, DPR = 1, Z = 1;
 let resCap = 1.5;
 // The water moves until frames get too slow (see watchSpeed in the main loop).
 let waterAnim = true;
-// For checking speed on a device: the frame rate and the resolution show in a corner (always, for
-// now; ?fps=0 hides them; ~ means the water stands still), ?jods=live draws Jods fully every frame
-// instead of from his cached body, and ?water=still stands the water still from the start.
-let SHOW_FPS = true, JODS_LIVE = false;
+// For checking speed on a device: ?fps=1 shows the frame rate and the resolution in a corner (~
+// means the water stands still), ?jods=live draws Jods fully every frame instead of from his cached
+// body, and ?water=still stands the water still from the start.
+let SHOW_FPS = false, JODS_LIVE = false;
 try {
   const q = new URLSearchParams(window.location.search);
-  SHOW_FPS = q.get('fps') !== '0'; JODS_LIVE = q.get('jods') === 'live';
+  SHOW_FPS = q.get('fps') === '1'; JODS_LIVE = q.get('jods') === 'live';
   if (q.get('water') === 'still') waterAnim = false;
 } catch (e) { /* no address */ }
 
@@ -91,7 +93,7 @@ const EN = {
   'Spēks nekrītas, bet peldēt ir grūtāk': 'Strength stays, but swimming is harder',
   'Viņa spēks nāk klāt tavējam': 'His strength adds to yours', 'Atrod tev ieročus': 'Finds weapons for you',
   'Spēks nekrīt, rāda ceļu uz lādēm': 'Strength stays, shows the way to chests',
-  '{n} nāk palīgā!': '{n} comes to help!',
+  '{n} nāk palīgā!': '{n} comes to help!', 'Lido ar viņas slotu!': 'Fly on her broom!',
   'Miega stabule': 'Sleepy flute', 'Ienaidnieki snauž un ir vājāki!': 'Enemies doze and get weaker!',
   'Tuvumā neviena nav...': 'Nobody is near...',
   // bosses and chests
@@ -112,20 +114,20 @@ const EN = {
   'Sveiks, Lāčplēsi!': 'Hello, Bearslayer!', 'Še, ņem!': 'Here, take it!', 'Lai tev veicas!': 'Good luck!',
   'Labdien, varoni!': 'Good day, hero!', 'Tas tev!': 'This is for you!',
   // places
-  'Lielvārdes pļavas': 'Lielvārde Meadows', 'Zilie kalni': 'Blue Hills', 'Kokneses pilsdrupas': 'Koknese Castle Ruins',
-  'Turaidas pils': 'Turaida Castle', 'Cēsu pils': 'Cēsis Castle', 'Vecpiebalgas ezeri': 'Vecpiebalga Lakes',
-  'Burtnieku ezers': 'Lake Burtnieks', 'Rundāles dārzs': 'Rundāle Garden', 'Tērvetes mežs': 'Tērvete Forest',
-  'Tērvetes pilskalns': 'Tērvete Hillfort', 'Ventas rumba': 'Venta Waterfall', 'Liepājas kanāls': 'Liepāja Canal',
-  'Jūrkalnes krasts': 'Jūrkalne Coast', 'Kolkasrags': 'Cape Kolka', 'Krāslavas tilts': 'Krāslava Bridge',
+  'Lielvārdes pļavas': 'Lielvārde Meadows', 'Zilie kalni': 'Blue Hills', 'Kokneses pils': 'Koknese Castle',
+  'Turaidas pils': 'Turaida Castle', 'Cēsu pils': 'Cēsis Castle', 'Piebalgas ezeri': 'Piebalga Lakes',
+  'Burtnieku ezers': 'Lake Burtnieks', 'Tērvetes mežs': 'Tērvete Forest',
+  'Tērvetes pilskalns': 'Tērvete Hillfort', 'Ventas rumba': 'Venta Waterfall', 'Līvas upe': 'Līva River',
+  'Jūrkalnes krasts': 'Jūrkalne Coast', 'Kolkasrags': 'Cape Kolka', 'Krāslavas pārceltuve': 'Krāslava Ferry',
   'Rāznas ezers': 'Lake Rāzna', 'Lubāna klāni': 'Lubāns Wetlands',
   'Ogres novads': 'Ogre Municipality', 'Aizkraukles novads': 'Aizkraukle Municipality',
   'Siguldas novads': 'Sigulda Municipality', 'Cēsu novads': 'Cēsis Municipality', 'Madonas novads': 'Madona Municipality',
   'Valmieras novads': 'Valmiera Municipality', 'Bauskas novads': 'Bauska Municipality',
-  'Dobeles novads': 'Dobele Municipality', 'Kuldīgas novads': 'Kuldīga Municipality', 'Liepājas valstspilsēta': 'Liepāja City',
+  'Dobeles novads': 'Dobele Municipality', 'Kuldīgas novads': 'Kuldīga Municipality', 'Liepājas krasts': 'Liepāja Coast',
   'Ventspils novads': 'Ventspils Municipality', 'Talsu novads': 'Talsi Municipality',
   'Krāslavas novads': 'Krāslava Municipality', 'Rēzeknes novads': 'Rēzekne Municipality',
   // water
-  'Pils dīķis': 'Castle Pond', 'Liepājas ezers': 'Lake Liepāja', 'Kanāls': 'Canal', 'Nagļu dīķi': 'Nagļi Ponds',
+  'Liepājas ezers': 'Lake Liepāja',
 };
 function loadLang() {
   try {
@@ -186,6 +188,7 @@ const REGIONS = [
 ];
 const RIGA_LL = [24.1, 56.95];
 const COAST_TREES = ['pine', 'pine', 'pine', 'pine', 'spruce', 'birch'];
+const ORCHARD_TREES = ['apple', 'apple', 'apple', 'tree'];
 // Tautumeitas' folk costumes, two per region: skirt, its stripes, shawl and its border, and a
 // flower wreath or a beaded crown (vainags).
 const MAIDEN_LOOKS = {
@@ -222,64 +225,65 @@ const LOCATIONS = [
     start: [0.9, 0.82], houses: [['kurbads', [0.88, 0.22]]], hill: [0.34, 0.42, 0.34], landmark: ['tower', [0.18, 0.16]],
     river: { name: 'Ogre', w: 32, pts: [[0.78, -0.05], [0.7, 0.3], [0.6, 0.62], [0.5, 1.05]], bridges: [{ t: 0.45 }] },
     forests: [[0.36, 0.46, 0.2, 0.3], [0.12, 0.8, 0.08, 0.13]], boss: chief('imp', 0.36, 0.46), next: ['turaida', 'cesis'] },
-  { id: 'koknese', name: 'Kokneses pilsdrupas', novads: 'Aizkraukles novads', region: VID, ll: [25.43, 56.62],
-    // the castle ruins stand on the Daugava's north bank, where the Pērse flows in from the north
-    start: [0.18, 0.8], houses: [['koknesis', [0.85, 0.3]]], landmark: ['ruins', [0.5, 0.76]],
+  { id: 'koknese', name: 'Kokneses pils', novads: 'Aizkraukles novads', region: VID, ll: [25.43, 56.62],
+    // the castle stands on the Daugava's north bank, just east of where the Pērse flows in
+    // from the north; he starts on that side too, and crosses the Pērse bridge to the boss's forest
+    start: [0.88, 0.62], houses: [['koknesis', [0.85, 0.3]]], landmark: ['koknese', [0.72, 0.8]],
     river: [{ name: 'Daugava', w: 105, pts: [[-0.05, 0.96], [0.5, 0.92], [1.05, 0.95]] },
       { name: 'Pērse', w: 28, pts: [[0.66, -0.05], [0.63, 0.4], [0.6, 0.9]], bridges: [{ t: 0.45 }] }],
     forests: [[0.3, 0.32, 0.17, 0.22]], boss: chief('wolf', 0.3, 0.32), next: ['turaida', 'cesis'] },
   // Turaida castle stands on the Gauja's north-west bank, across the valley from Sigulda, where
   // Lāčplēsis starts; the Gauja runs south-west between them.
   { id: 'turaida', name: 'Turaidas pils', novads: 'Siguldas novads', region: VID, ll: [24.85, 57.18],
-    start: [0.86, 0.8], landmark: ['redcastle', [0.28, 0.22]],
-    river: { name: 'Gauja', w: 62, pts: [[0.82, -0.05], [0.64, 0.35], [0.46, 0.66], [0.32, 1.05]], bridges: [{ t: 0.6 }] },
-    forests: [[0.2, 0.55, 0.12, 0.16], [0.82, 0.4, 0.1, 0.16]], boss: { type: 'bear', at: [0.3, 0.82] }, regionBoss: true, next: ['rundale', 'tervete'] },
+    start: [0.86, 0.8], landmark: ['turaida', [0.49, 0.22]],
+    river: { name: 'Gauja', w: 62, pts: [[0.82, -0.05], [0.64, 0.35], [0.46, 0.66], [0.32, 1.05]], bridges: [{ t: 0.38 }] },
+    forests: [[0.2, 0.55, 0.12, 0.16], [0.82, 0.4, 0.1, 0.16]], boss: { type: 'bear', at: [0.3, 0.82] }, regionBoss: true, next: ['tervete'] },
   { id: 'cesis', name: 'Cēsu pils', novads: 'Cēsu novads', region: VID, ll: [25.3, 57.33],
-    // the old town lies south-west of the castle, the castle park pond east of it, the Gauja to the west
-    start: [0.3, 0.84], landmark: ['castle', [0.5, 0.26]], village: [0.36, 0.44], lakes: [[0.66, 0.2, 80, 50, 0.3, 'Pils dīķis']],
+    // the village lies south-west of the castle, a small pond east of it, the Gauja to the west
+    start: [0.3, 0.84], landmark: ['cesis', [0.5, 0.26]], village: [0.36, 0.44], town: true, lakes: [[0.66, 0.2, 80, 50, 0.3]],
     river: { name: 'Gauja', w: 50, pts: [[0.08, -0.05], [0.11, 0.5], [0.05, 1.05]] },
     forests: [[0.74, 0.62, 0.2, 0.28]], boss: chief('wolf', 0.74, 0.62), next: ['vecpiebalga'] },
-  // Vecpiebalga sits east of its lakes: big oval Alauksts to the north-north-west (long axis NW–SE),
+  // Piebalga sits east of its lakes: big oval Alauksts to the north-north-west (long axis NW–SE),
   // small overgrown Tauns to the west, and Inesis with its bays to the south-south-west. A ditch
-  // runs from Alauksts into Tauns, and the Pīle on into Inesis.
-  { id: 'vecpiebalga', name: 'Vecpiebalgas ezeri', novads: 'Cēsu novads', region: VID, ll: [25.8, 57.06],
+  // runs from Alauksts into Tauns, and a small river on into Inesis.
+  { id: 'vecpiebalga', name: 'Piebalgas ezeri', novads: 'Cēsu novads', region: VID, ll: [25.8, 57.06],
     start: [0.9, 0.6], village: [0.62, 0.5], swamps: 4,
     lakes: [[0.36, 0.06, 560, 230, 0.45, 'Alauksts'], [0.35, 0.5, 120, 80, 0.2, 'Tauns'],
       [0.47, 0.94, 430, 190, -0.15, 'Inesis'], [0.3, 0.88, 170, 110, 0.6], [0.6, 0.86, 150, 90, -0.5]],
     islands: [[0.42, 0.89, 80, 46, { trees: 4, gifts: ['armor'] }]],
-    river: { name: 'Pīle', w: 18, pts: [[0.36, 0.14], [0.33, 0.3], [0.35, 0.5], [0.4, 0.68], [0.45, 0.86]], bridges: [{ t: 0.22 }, { t: 0.78 }] },
+    river: { w: 18, pts: [[0.36, 0.14], [0.33, 0.3], [0.35, 0.5], [0.4, 0.68], [0.45, 0.86]], bridges: [{ t: 0.22 }, { t: 0.78 }] },
     forests: [[0.8, 0.26, 0.13, 0.17], [0.12, 0.42, 0.09, 0.2], [0.85, 0.86, 0.1, 0.09]],
     boss: chief('imp', 0.14, 0.82), next: ['burtnieki', 'gaizins'] },
   { id: 'gaizins', name: 'Gaiziņkalns', novads: 'Madonas novads', region: VID, ll: [25.96, 56.87],
     start: [0.1, 0.8], hill: [0.55, 0.42, 0.42], landmark: ['tower', [0.55, 0.38]], lakes: [[0.14, 0.24, 200, 120]],
     forests: [[0.3, 0.52, 0.13, 0.2], [0.8, 0.56, 0.16, 0.27]], boss: chief('wolf', 0.8, 0.56), next: ['lubans'] },
-  // Burtnieks is a long lake running north to south; Burtnieki manor and village are on its south and
-  // south-east shore.
+  // Burtnieks is a long lake running north to south; Burtnieki village is on its south-east shore.
+  // Spīdola waits in a witch circle south of the lake: Zilaiskalns, the witches' hill, is nearby.
   { id: 'burtnieki', name: 'Burtnieku ezers', novads: 'Valmieras novads', region: VID, ll: [25.23, 57.73],
     start: [0.14, 0.86], lakes: [[0.4, 0.12, 520, 760, 0.3, 'Burtnieks']], village: [0.6, 0.66],
+    houses: [['spidola', [0.36, 0.82]]],
     forests: [[0.82, 0.32, 0.13, 0.22]], boss: chief('wolf', 0.82, 0.32), next: [] },
   // Zemgale
-  { id: 'rundale', name: 'Rundāles dārzs', novads: 'Bauskas novads', region: ZEM, ll: [24.03, 56.42],
-    start: [0.08, 0.5], paija: [0.24, 0.34], landmark: ['palace', [0.5, 0.2]], trees: ['apple', 'apple', 'tree'],
-    forests: [[0.5, 0.68, 0.28, 0.22]], boss: chief('vadatajs', 0.9, 0.78), next: ['tervete'] },
   { id: 'tervete', name: 'Tērvetes mežs', novads: 'Dobeles novads', region: ZEM, ll: [23.22, 56.55],
     start: [0.08, 0.72], houses: [['spriditis', [0.15, 0.24]]],
     forests: [[0.58, 0.5, 0.34, 0.38]], boss: { type: 'jods', heads: 3, at: [0.66, 0.32] }, regionBoss: true, next: ['kuldiga'] },
   // the hillfort (Cukurkalns) rises on the right, east, bank of the Tērvete, which flows north
   { id: 'pilskalns', name: 'Tērvetes pilskalns', novads: 'Dobeles novads', region: ZEM, ll: [23.47, 56.41],
-    start: [0.1, 0.85], hill: [0.74, 0.42, 0.24],
+    // the small forest on the west bank is an apple orchard
+    start: [0.1, 0.85], hill: [0.74, 0.42, 0.24], orchard: [0.18, 0.3, 0.14, 0.24],
     river: { name: 'Tērvete', w: 30, pts: [[0.32, -0.05], [0.42, 0.5], [0.32, 1.05]], bridges: [{ t: 0.6 }] },
     forests: [[0.18, 0.3, 0.11, 0.2], [0.72, 0.8, 0.18, 0.14]], boss: { type: 'jods', heads: 9, at: [0.74, 0.38] },
     final: true, next: [] },
   // Kurzeme
   { id: 'kuldiga', name: 'Ventas rumba', novads: 'Kuldīgas novads', region: KUR, ll: [21.97, 56.97],
-    start: [0.12, 0.72], village: [0.24, 0.3],
+    start: [0.12, 0.72], village: [0.24, 0.3], town: true,
     river: { name: 'Venta', w: 82, pts: [[0.5, -0.05], [0.47, 0.4], [0.55, 0.7], [0.5, 1.05]], bridges: [{ t: 0.33, big: true, brick: true }], falls: 0.62 },
     forests: [[0.82, 0.5, 0.13, 0.34]], boss: chief('crayfish', 0.86, 0.15), next: ['liepaja', 'jurkalne'] },
-  { id: 'liepaja', name: 'Liepājas kanāls', novads: 'Liepājas valstspilsēta', region: KUR, ll: [21.08, 56.53],
-    start: [0.62, 0.84], village: [0.3, 0.3], lakes: [[0.93, 0.62, 260, 520, 0, 'Liepājas ezers']],
+  // Before the canal was dug, the little Līva river ran from Liepāja lake to the sea.
+  { id: 'liepaja', name: 'Līvas upe', novads: 'Liepājas krasts', region: KUR, ll: [21.08, 56.53],
+    start: [0.62, 0.84], village: [0.3, 0.3], town: true, lakes: [[0.93, 0.62, 260, 520, 0, 'Liepājas ezers']],
     sea: [[[-0.1, -0.1], [0.2, -0.1], [0.17, 0.4], [0.21, 0.75], [0.18, 1.1], [-0.1, 1.1]]],
-    river: { name: 'Kanāls', w: 44, pts: [[0.1, 0.5], [0.45, 0.47], [0.85, 0.52]], bridges: [{ t: 0.55, big: true }] },
+    river: { name: 'Līva', w: 22, pts: [[0.85, 0.52], [0.68, 0.46], [0.5, 0.5], [0.3, 0.45], [0.1, 0.5]], bridges: [{ t: 0.45 }] },
     forests: [[0.55, 0.24, 0.13, 0.14], [0.38, 0.74, 0.11, 0.13]], boss: chief('crayfish', 0.76, 0.18), enemyTypes: ['crayfish', 'gull', 'wolf'], next: ['jurkalne'] },
   { id: 'jurkalne', name: 'Jūrkalnes krasts', novads: 'Ventspils novads', region: KUR, ll: [21.4, 57.0],
     start: [0.85, 0.85],
@@ -296,10 +300,10 @@ const LOCATIONS = [
     forests: [[0.25, 0.8, 0.18, 0.16], [0.76, 0.78, 0.17, 0.17]], boss: { type: 'jods', heads: 6, at: [0.5, 0.48] }, enemyTypes: ['gull', 'wolf'],
     regionBoss: true, next: ['kraslava'] },
   // Latgale
-  { id: 'kraslava', name: 'Krāslavas tilts', novads: 'Krāslavas novads', region: LAT, ll: [27.17, 55.93],
-    // Krāslava town on the Daugava's north bank, the bridge across to the south
+  { id: 'kraslava', name: 'Krāslavas pārceltuve', novads: 'Krāslavas novads', region: LAT, ll: [27.17, 55.93],
+    // Krāslava town on the Daugava's north bank; no bridge then, but a ferry boat across to the south
     start: [0.08, 0.2], village: [0.56, 0.26],
-    river: { name: 'Daugava', w: 100, pts: [[-0.05, 0.55], [0.35, 0.46], [0.7, 0.6], [1.05, 0.5]], bridges: [{ t: 0.5, big: true }] },
+    river: { name: 'Daugava', w: 100, pts: [[-0.05, 0.55], [0.35, 0.46], [0.7, 0.6], [1.05, 0.5]], ferry: 0.5 },
     forests: [[0.28, 0.2, 0.13, 0.12], [0.72, 0.86, 0.2, 0.1]], boss: chief('spirit', 0.88, 0.84), next: ['razna'] },
   { id: 'razna', name: 'Rāznas ezers', novads: 'Rēzeknes novads', region: LAT, ll: [27.5, 56.34],
     // Mākoņkalns, with the ruins of Volkenberg castle on top, rises south-west of the lake
@@ -308,16 +312,22 @@ const LOCATIONS = [
   { id: 'lubans', name: 'Lubāna klāni', novads: 'Madonas novads', region: LAT, ll: [26.75, 56.78],
     // Lubāns, Latvia's biggest lake, runs from beyond the top edge far down the middle, just east of
     // the start, with Ragana on its far shore. It can't be passed in the north; in the south the
-    // klāni, round flooded bogs (with the Nagļi fish ponds), reach to the bottom edge. So the way to
-    // her is a long swim or a wade round through the bog.
+    // klāni, round flooded bogs, reach to the bottom edge (no Nagļi fish ponds: they came much
+    // later). So the way to her is a long swim or a wade round through the bog.
     start: [0.07, 0.55],
-    lakes: [[0.42, 0.244, 520, 920, -0.08, 'Lubāns'], [0.66, 0.93, 120, 60, 0, 'Nagļu dīķi'], [0.79, 0.9, 110, 55]],
-    swampAreas: [[0.5, 0.87, 270, 260], [0.36, 0.88, 180, 150], [0.61, 0.765, 190, 150], [0.27, 0.745, 120, 95]],
+    lakes: [[0.42, 0.244, 520, 920, -0.08, 'Lubāns']],
+    swampAreas: [[0.5, 0.87, 270, 260], [0.36, 0.88, 180, 150], [0.61, 0.765, 190, 150], [0.27, 0.745, 120, 95],
+      [0.72, 0.92, 200, 130]],
     swamps: 2,
     forests: [[0.1, 0.22, 0.07, 0.12], [0.9, 0.16, 0.06, 0.11]], boss: { type: 'witch', at: [0.83, 0.45] }, regionBoss: true, next: [] },
 ];
-// A tautumeita stands in every other place (at most one per two), starting with Lielvārde.
-LOCATIONS.forEach((l, k) => { l.seed = 1000 + k * 7919; l.maidens ??= k % 2 === 0 ? 1 : 0; });
+// A tautumeita stands in every other place (at most one per two), starting with Lielvārde. The
+// places after Burtnieki count on from 9, where Rundāle used to be, so their layouts and tautumeitas
+// stay as they were.
+LOCATIONS.forEach((l, k) => {
+  const n = k < 8 ? k : k + 1;
+  l.seed = 1000 + n * 7919; l.maidens ??= n % 2 === 0 ? 1 : 0;
+});
 const LOC_BY_ID = Object.fromEntries(LOCATIONS.map(l => [l.id, l]));
 const FINAL_LOC = 'pilskalns';
 // The final place opens once every region's main boss is beaten (not every place in it).
@@ -336,7 +346,7 @@ const swamp = new Uint8Array(GW * GH);   // boggy ground by lakes and rivers: wa
 const reef = new Uint8Array(GW * GH);    // shallow water out at sea that can be swum, like Kolka's sēre
 // Footprints of the big buildings (half-width, depth), which Lāčplēsis walks around.
 const LANDMARKS = {
-  castle: { w: 95, d: 34 }, ruins: { w: 95, d: 30 }, redcastle: { w: 70, d: 30 }, palace: { w: 175, d: 40 },
+  koknese: { w: 100, d: 34 }, turaida: { w: 92, d: 32 }, cesis: { w: 100, d: 36 }, ruins: { w: 95, d: 30 },
   lighthouse: { w: 26, d: 22 }, tower: { w: 30, d: 24 },
 };
 
@@ -455,7 +465,6 @@ function buildOverview() {
   glowGold = makeGlow('255,205,60');
 }
 
-const CROP_FIELDS = false;
 
 // Build the playing area of one location. The layout is fixed every game, so it can be learned.
 function buildLocation(def) {
@@ -463,11 +472,11 @@ function buildLocation(def) {
   const R = REGIONS[def.region];
   const N = p => ({ x: p[0] * WORLD_W, y: p[1] * WORLD_H });
   const l = {
-    def, R, start: N(def.start), spring: def.spring ? N(def.spring) : null, paija: def.paija ? N(def.paija) : null,
+    def, R, start: N(def.start), spring: def.spring ? N(def.spring) : null,
     boss: def.boss ? { ...def.boss, ...N(def.boss.at) } : null,
     houses: (def.houses || []).map(([id, p]) => ({ id, ...N(p) })),
     landmark: def.landmark ? { type: def.landmark[0], ...N(def.landmark[1]) } : null,
-    rivers: [], bridges: [], falls: null, lakes: [], decor: [], waves: [], village: null, landCells: [],
+    rivers: [], bridges: [], falls: null, ferry: null, lakes: [], decor: [], waves: [], village: null, landCells: [],
   };
   l.sign = { x: l.start.x - 85, y: l.start.y + 20 };
   l.bossR = !l.boss ? 0 : l.boss.type === 'jods' ? 210 + (l.boss.heads || 3) * 14 : lairForest(def) >= 0 ? LAIR_R : 200;
@@ -485,6 +494,8 @@ function buildLocation(def) {
     };
     for (const b of r.bridges || []) l.bridges.push({ ...along(b.t), half: r.w + 95, water: r.w + 12, wide: b.big ? 72 : 58, big: !!b.big, brick: !!b.brick });
     if (r.falls !== undefined) l.falls = { ...along(r.falls), w: r.w };
+    // a ferry: landings `dock` from the middle on each bank, the boat running `run` either way
+    if (r.ferry !== undefined) l.ferry = { ...along(r.ferry), dock: r.w + 40, run: r.w - 50 };
   }
   // a lake is [x, y, rx, ry, turn (radians, optional), name (optional)]
   l.lakes = (def.lakes || []).map(([x, y, rx, ry, a = 0, name]) => ({ ...N([x, y]), rx, ry, a, name }));
@@ -541,7 +552,6 @@ function buildLocation(def) {
   if (l.spring) clear.push([l.spring.x, l.spring.y, 140]);
   if (l.boss) clear.push([l.boss.x, l.boss.y - 30, l.bossR]);
   for (const hs of l.houses) clear.push([hs.x, hs.y, 140]);
-  if (l.paija) clear.push([l.paija.x, l.paija.y, 110]);
   if (l.landmark) clear.push([l.landmark.x, l.landmark.y - 20, LANDMARKS[l.landmark.type].w + 80]);
   if (def.village) {
     const p = N(def.village), houses = [];
@@ -550,10 +560,12 @@ function buildLocation(def) {
       houses.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.7, s: 0.85 + rng() * 0.35 });
     }
     houses.sort((a, b) => a.y - b.y);
-    l.village = { ...p, houses };
+    l.village = { ...p, houses, town: !!def.town };
     clear.push([p.x, p.y, 130]);
   }
   for (const b of l.bridges) for (const s of [-1, 1]) clear.push([b.x + b.px * s * (b.half + 30), b.y + b.py * s * (b.half + 30), 110]);
+  if (l.ferry) for (const s of [-1, 1]) { const d = ferryDock(l.ferry, s); clear.push([d.x, d.y, 110]); }
+  ferryLink = l.ferry ? [-1, 1].map(s => { const d = ferryDock(l.ferry, s); return cellOf(d.x, d.y); }) : null;
 
   buildForests(def, rng);
   // small copses of trees out on the meadows
@@ -604,46 +616,62 @@ function buildLocation(def) {
   for (let i = 0; i < GW * GH; i++) if (reach[i] && terrain[i] === T_LAND) l.landCells.push(i);
   l.reach = reach;
 
-  // big crop fields out on the meadows (walkable, just drawn on the ground); switched off for now
-  // with CROP_FIELDS (turning them back on moves the scenery after them in places that have fields)
+  buildSwamps(def, l, clear);
+  l.swampCells = l.landCells.filter(i => swamp[i]);
+
+  // Big crop fields out on the meadows (walkable, just drawn on the ground). They have their own
+  // seed and come after the swamps, which they keep off, so adding or tuning them moves nothing else.
   l.fields = [];
-  for (let k = 0, tries = 0; CROP_FIELDS && k < (def.fields ?? R.fields ?? 0) && tries < 300; tries++) {
-    const w = 260 + rng() * 160, h = 160 + rng() * 90, a = (rng() - 0.5) * 0.5;
-    const x = 120 + rng() * (WORLD_W - 240), y = 120 + rng() * (WORLD_H - 240);
-    const cs = Math.cos(a), sn = Math.sin(a);
+  const frng = seeded(def.seed + 577);
+  const inRect = (f, x, y, m) => {
+    const dx = x - f.x, dy = y - f.y, cs = Math.cos(f.a), sn = Math.sin(f.a);
+    return Math.abs(dx * cs + dy * sn) < f.w / 2 + m && Math.abs(-dx * sn + dy * cs) < f.h / 2 + m;
+  };
+  for (let k = 0, tries = 0; k < (def.fields ?? R.fields ?? 0) && tries < 300; tries++) {
+    const f = { w: 260 + frng() * 160, h: 160 + frng() * 90, a: (frng() - 0.5) * 0.5,
+      x: 120 + frng() * (WORLD_W - 240), y: 120 + frng() * (WORLD_H - 240) };
+    // every cell under it, and a little round it, is open, dry, unsandy meadow
+    const r = Math.hypot(f.w, f.h) / 2 + 30;
     let ok = true;
-    for (let u = -1; u <= 1 && ok; u += 0.25) for (let v = -1; v <= 1 && ok; v += 0.25) {
-      const px = x + (u * w / 2 + 25 * Math.sign(u)) * cs - (v * h / 2 + 25 * Math.sign(v)) * sn;
-      const py = y + (u * w / 2 + 25 * Math.sign(u)) * sn + (v * h / 2 + 25 * Math.sign(v)) * cs;
-      const i = cellOf(px, py);
-      if (i < 0 || terrain[i] !== T_LAND || sandy[i]) ok = false;
+    for (let cy = Math.floor((f.y - r) / CELL); cy <= Math.floor((f.y + r) / CELL) && ok; cy++) {
+      for (let cx = Math.floor((f.x - r) / CELL); cx <= Math.floor((f.x + r) / CELL) && ok; cx++) {
+        if (!inRect(f, (cx + 0.5) * CELL, (cy + 0.5) * CELL, 25)) continue;
+        const i = cx >= 0 && cy >= 0 && cx < GW && cy < GH ? cy * GW + cx : -1;
+        if (i < 0 || terrain[i] !== T_LAND || sandy[i] || swamp[i]) ok = false;
+      }
     }
-    if (!ok || clear.some(([kx, ky, kr]) => dist(x, y, kx, ky) < kr + Math.max(w, h) * 0.4)) continue;
-    if (l.swampAreas.some(a => dist(x, y, a.x, a.y) < Math.max(a.rx, a.ry) * 1.15 + Math.max(w, h) * 0.6)) continue;
-    if (l.fields.some(f => dist(x, y, f.x, f.y) < (Math.max(w, h) + Math.max(f.w, f.h)) * 0.6)) continue;
-    l.fields.push({ x, y, w, h, a, crop: (def.crops || R.crops)[Math.floor(rng() * (def.crops || R.crops).length)],
-      hay: rng() < 0.6 ? 1 + Math.floor(rng() * 3) : 0, v: rng() });
+    const big = Math.max(f.w, f.h);
+    if (!ok || clear.some(([kx, ky, kr]) => dist(f.x, f.y, kx, ky) < kr + big * 0.4)) continue;
+    if (l.swampAreas.some(a => dist(f.x, f.y, a.x, a.y) < Math.max(a.rx, a.ry) * 1.15 + big * 0.6)) continue;
+    if (l.fields.some(o => dist(f.x, f.y, o.x, o.y) < (big + Math.max(o.w, o.h)) * 0.6)) continue;
+    // the first field in a place is the region's own crop (Latgale's blue flax), the rest are
+    // picked at random (drawn either way, so the fields stay where they are)
+    const crops = def.crops || R.crops, pick = Math.floor(frng() * crops.length);
+    f.crop = crops[k === 0 ? 0 : pick];
+    f.hay = frng() < 0.6 ? 1 + Math.floor(frng() * 3) : 0; f.v = frng();
+    l.fields.push(f);
     k++;
   }
-  const inField = (x, y) => l.fields.some(f => {
-    const dx = x - f.x, dy = y - f.y, cs = Math.cos(f.a), sn = Math.sin(f.a);
-    return Math.abs(dx * cs + dy * sn) < f.w / 2 + 15 && Math.abs(-dx * sn + dy * cs) < f.h / 2 + 15;
-  });
-
-  buildSwamps(def, l, clear, inField);
-  l.swampCells = l.landCells.filter(i => swamp[i]);
+  const inField = (x, y) => l.fields.some(f => inRect(f, x, y, 15));
 
   // scenery
   // by the sea the forests are pine forests
   const coastal = !!(def.sea && def.sea.length);
   const trees = def.trees || (coastal ? COAST_TREES : R.trees);
+  // an orchard: the forest cells inside this ellipse are apple trees (same rng use, so the layout
+  // doesn't move)
+  const inOrchard = (cx, cy) => {
+    if (!def.orchard) return false;
+    const [ox, oy, rx, ry] = def.orchard;
+    return (((cx + 0.5) * CELL / WORLD_W - ox) / rx) ** 2 + (((cy + 0.5) * CELL / WORLD_H - oy) / ry) ** 2 < 1;
+  };
   const open = R.open || [['flowers', 1]];
   let openTotal = 0;
   for (const d of open) openTotal += d[1];
   for (let i = 0; i < GW * GH; i++) {
     const t = terrain[i], cx = i % GW, cy = Math.floor(i / GW);
     if (t === T_FOREST || t === T_EDGE) {
-      const list = t === T_EDGE ? (coastal ? COAST_TREES : R.trees) : trees;
+      const list = t === T_EDGE ? (coastal ? COAST_TREES : R.trees) : inOrchard(cx, cy) ? ORCHARD_TREES : trees;
       const type = sandy[i] ? 'pine' : list[Math.floor(rng() * list.length)];
       l.decor.push({ cell: t === T_FOREST ? i : undefined, type, x: (cx + 0.5) * CELL + (rng() - 0.5) * 10,
         y: (cy + 0.5) * CELL + (rng() - 0.5) * 10, s: (t === T_EDGE ? 1.15 : 1.0) + rng() * 0.3, v: rng() });
@@ -651,14 +679,15 @@ function buildLocation(def) {
     }
     if (t !== T_LAND || rng() > 0.06) continue;
     const x = (cx + 0.5) * CELL + (rng() - 0.5) * 20, y = (cy + 0.5) * CELL + (rng() - 0.5) * 20;
-    if (clear.some(([kx, ky, kr]) => dist(x, y, kx, ky) < kr * 0.6) || inField(x, y)) continue;
+    if (clear.some(([kx, ky, kr]) => dist(x, y, kx, ky) < kr * 0.6)) continue;
     let type = 'rock';
     if (!sandy[i]) {
       let r = rng() * openTotal;
       for (const d of open) { r -= d[1]; if (r <= 0) { type = d[0]; break; } }
     }
     const d = { type, x, y, s: 0.8 + rng() * 0.45, v: rng() };
-    if (!swamp[i]) l.decor.push(d);
+    // (a field just leaves it out, after its random numbers are drawn, so the rest stays put)
+    if (!swamp[i] && !inField(x, y)) l.decor.push(d);
   }
   l.decor.sort((a, b) => a.y - b.y);
   for (let k = 0; k < 400; k++) {
@@ -741,7 +770,7 @@ function inSwampArea(l, x, y, grow = 1) {
   });
 }
 
-function buildSwamps(def, l, clear, inField) {
+function buildSwamps(def, l, clear) {
   const rng = seeded(def.seed + 313);
   // spots kept dry (landings for a swim across), as [x, y, radius] in fractions and pixels
   const dry = (def.dry || []).map(([x, y, r]) => ({ x: x * WORLD_W, y: y * WORLD_H, r }));
@@ -767,7 +796,7 @@ function buildSwamps(def, l, clear, inField) {
     if (terrain[i] !== T_LAND || sandy[i]) return false;
     const x = (i % GW + 0.5) * CELL, y = (Math.floor(i / GW) + 0.5) * CELL;
     if (isDry(x, y)) return false;
-    return !inField(x, y) && !clear.some(([a, b, r]) => dist(x, y, a, b) < r + 30);
+    return !clear.some(([a, b, r]) => dist(x, y, a, b) < r + 30);
   };
   const seeds = [];
   for (let tries = 0; tries < 800 && seeds.length < n; tries++) {
@@ -933,20 +962,30 @@ function lairDoors(list, d, MW) {
 }
 
 // Every cell that can be walked to from p (over land and bridges).
+// The cells of the ferry's two landings in the place being built: the boat joins them.
+let ferryLink = null;
 function reachable(p) {
   const NC = GW * GH, reach = new Uint8Array(NC), q = new Int32Array(NC);
   const passable = i => terrain[i] === T_LAND || terrain[i] === T_BRIDGE;
   const s0 = cellOf(p.x, p.y);
   let qh = 0, qt = 0;
   q[qt++] = s0; reach[s0] = 1;
-  while (qh < qt) {
-    const c = q[qh++], cx = c % GW, cy = Math.floor(c / GW);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const x = cx + dx, y = cy + dy;
-      if (x < 0 || y < 0 || x >= GW || y >= GH) continue;
-      const n = y * GW + x;
-      if (!reach[n] && passable(n)) { reach[n] = 1; q[qt++] = n; }
+  for (;;) {
+    while (qh < qt) {
+      const c = q[qh++], cx = c % GW, cy = Math.floor(c / GW);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = cx + dx, y = cy + dy;
+        if (x < 0 || y < 0 || x >= GW || y >= GH) continue;
+        const n = y * GW + x;
+        if (!reach[n] && passable(n)) { reach[n] = 1; q[qt++] = n; }
+      }
     }
+    if (!ferryLink) break;
+    const [a, b] = ferryLink;
+    if (reach[a] === reach[b]) break;
+    const n = reach[a] ? b : a;
+    if (!passable(n)) break;
+    reach[n] = 1; q[qt++] = n;
   }
   return reach;
 }
@@ -1014,6 +1053,7 @@ function rebuildBlocked() {
   }
   L.mmCanvas = document.createElement('canvas');
   L.mmCanvas.width = GW; L.mmCanvas.height = GH;
+  L.mmVersion = (L.mmVersion || 0) + 1;   // the HUD's cached minimap is drawn again
   const m = L.mmCanvas.getContext('2d'), mi = m.createImageData(GW, GH);
   for (let i = 0; i < GW * GH; i++) {
     const t = terrain[i];
@@ -1258,6 +1298,8 @@ const COMPANIONS = {
   kurbads: { name: 'Kurbads', sub: 'Viņa spēks nāk klāt tavējam', dur: 45 },
   koknesis: { name: 'Koknesis', sub: 'Atrod tev ieročus', dur: 45 },
   spriditis: { name: 'Sprīdītis', sub: 'Spēks nekrīt, rāda ceļu uz lādēm', dur: 45 },
+  // Spīdola stands in a witch circle, not a house; while she's with him they both fly on brooms
+  spidola: { name: 'Spīdola', sub: 'Lido ar viņas slotu!', dur: 30, circle: true },
 };
 const ICON_IDS = new Set([...Object.keys(FX_INFO), ...Object.keys(COMPANIONS), 'flute', 'swim', 'burn', 'crown', 'map',
   'bear', 'jods', 'lock', 'spring', 'check']);
@@ -1280,10 +1322,10 @@ function newGame(fromSave) {
     items: [], decoys: [], maidens: [], digits: [], digitT: 0, enemies: [], chests: [], particles: [], popups: [], fireworks: [],
     fx: { sword: 0, club: 0, axe: 0, shield: 0, helmet: 0, armor: 0, boots: 0, broom: 0, torch: 0 },
     burnt: [], ask: null, askCd: 0,
-    houseCd: { kurbads: 0, koknesis: 0, spriditis: 0 }, zapT: 0, rescaleT: 1, bolts: [],
+    houseCd: { kurbads: 0, koknesis: 0, spriditis: 0, spidola: 0 }, zapT: 0, rescaleT: 1, bolts: [],
     ally: null, banner: null, hint: null, cine: null,
     spawnT: { item: 0, enemy: 0, chest: 30 },
-    bumps: 0, springCd: 0, paijaCd: 0, paijaSay: 0,
+    bumps: 0, springCd: 0,
     dirty: false, saveT: 0,
   };
   const id = s && LOC_BY_ID[s.loc] && isUnlocked(s.loc) ? s.loc : LOCATIONS[0].id;
@@ -1318,8 +1360,12 @@ function enterLocation(id) {
   h.x = L.start.x; h.y = L.start.y;
   h.route = null; h.kx = h.ky = 0; h.swimming = h.swimOK = false; h.inv = 0;
   if (g.ally) { g.ally.x = h.x - 46; g.ally.y = h.y + 12; }
-  g.signArmed = false; g.hint = null; g.bumps = 0; g.springCd = 0; g.paijaCd = 0; g.paijaSay = 0;
-  g.fx.broom = 0;
+  g.signArmed = false; g.hint = null; g.bumps = 0; g.springCd = 0;
+  // the ferry boat waits at the landing on the start's side of the river
+  const fy = L.ferry;
+  g.boat = fy ? { pos: Math.sign((h.x - fy.x) * fy.px + (h.y - fy.y) * fy.py) || -1, to: 0, riding: false, armed: true } : null;
+  // a broom doesn't come along to the next place, unless Spīdola does
+  g.fx.broom = g.ally && g.ally.type === 'spidola' ? g.ally.t : 0;
   g.fade = 0.7;
   g.maidens = placeMaidens();
   // the boss comes first, so the creatures around an unbeaten boss can be kept weaker than it
@@ -1468,7 +1514,7 @@ function placeMaidens() {
     if (L.boss && dist(x, y, L.boss.x, L.boss.y) < BOSS_GIFT_GAP) continue;
     if (L.houses.some(hs => dist(x, y, hs.x, hs.y) < 160)) continue;
     if (L.landmark && dist(x, y, L.landmark.x, L.landmark.y) < LANDMARKS[L.landmark.type].w + 90) continue;
-    if ((L.spring && dist(x, y, L.spring.x, L.spring.y) < 200) || (L.paija && dist(x, y, L.paija.x, L.paija.y) < 300)) continue;
+    if (L.spring && dist(x, y, L.spring.x, L.spring.y) < 200) continue;
     if (out.some(m => dist(x, y, m.x, m.y) < 600)) continue;
     let open = true;
     for (let dy = -2; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) if (blocked[i + dy * GW + dx] !== 0) open = false;
@@ -1806,7 +1852,8 @@ function update(dt) {
   updateBurnt(dt);
   if (g.ally && (g.ally.t -= dt) <= 0) { puff(g.ally.x, g.ally.y - 20); g.ally = null; }
 
-  updateHero(dt);
+  if (!(g.boat && g.boat.riding)) updateHero(dt);
+  updateFerry(dt);
   updateAlly(dt);
   updateEnemies(dt);
   updatePickups(dt);
@@ -2013,10 +2060,46 @@ function updateHouses(dt) {
     const C = COMPANIONS[hs.id];
     g.ally = { type: hs.id, x: hs.x, y: hs.y + 24, face: 1, moving: false, t: C.dur };
     g.houseCd[hs.id] = C.dur + 30;
+    if (hs.id === 'spidola') g.fx.broom = Math.max(g.fx.broom, C.dur);   // she lends him her broom
     puff(hs.x, hs.y + 10);
     banner(hs.id, tr('{n} nāk palīgā!', { n: tr(C.name) }), tr(C.sub));
     sfx('chest');
   }
+}
+
+// The Krāslava ferry: a wooden boat that takes Lāčplēsis across the Daugava by itself. Walking
+// onto a landing calls it over if it's at the other one; then it carries him across. He has to step
+// off the landing before it will take him back.
+const FERRY_TIME = 4.5;   // seconds across
+function ferryDock(f, s) { return { x: f.x + f.px * s * f.dock, y: f.y + f.py * s * f.dock }; }
+function updateFerry(dt) {
+  const g = game, h = g.hero, f = L.ferry, b = g.boat;
+  if (!f) return;
+  const step = 2 / FERRY_TIME * dt;
+  if (b.riding) {
+    // u runs from landing to landing: he walks out along the jetty, rides, and walks off the other
+    b.u += Math.sign(b.to - b.u) * step;
+    if ((b.to - b.u) * b.to <= 0) { b.u = b.to; b.riding = false; b.armed = false; sfx('boing'); }
+    b.pos = clamp(b.u * f.dock / f.run, -1, 1);
+    h.x = f.x + f.px * b.u * f.dock; h.y = f.y + f.py * b.u * f.dock;
+    h.route = null; h.moving = b.riding && Math.abs(b.u * f.dock) > f.run;
+    if (Math.abs(f.px) > 0.2) h.face = f.px * b.to > 0 ? 1 : -1;
+    return;
+  }
+  const near = [-1, 1].find(s => { const d = ferryDock(f, s); return dist(h.x, h.y, d.x, d.y) < 46; });
+  if (!near) {
+    if ([-1, 1].every(s => { const d = ferryDock(f, s); return dist(h.x, h.y, d.x, d.y) > 90; })) b.armed = true;
+    return;
+  }
+  if (!b.armed || g.fx.broom > 0) return;
+  if (b.pos !== near) {   // the boat comes over to fetch him
+    b.pos += Math.sign(near - b.pos) * step;
+    if ((near - b.pos) * near <= 0) b.pos = near;
+    return;
+  }
+  b.riding = true; b.to = -near; b.u = near;
+  h.route = null; h.swimming = false;
+  sfx('pling');
 }
 
 // Pērkona cirvis: lightning hits the nearest enemy that Lāčplēsis could beat anyway.
@@ -2068,7 +2151,8 @@ function updateRescale(dt) {
 function updateAlly(dt) {
   const a = game.ally, h = game.hero;
   if (!a) return;
-  const tx = h.x - h.face * 46, ty = h.y + 12;
+  // Spīdola keeps further back, so her broom doesn't cross his
+  const tx = h.x - h.face * (a.type === 'spidola' ? 74 : 46), ty = h.y + 12;
   const d = dist(a.x, a.y, tx, ty);
   a.moving = d > 6;
   if (d > 6) {
@@ -2229,16 +2313,6 @@ function updatePickups(dt) {
     g.ally.giveT = 12;
     puff(g.ally.x, g.ally.y - 30);
     giveItem(pick(['sword', 'club', 'axe']));
-  }
-  // Paija puts a weapon down for Lāčplēsis and points to a chest.
-  g.paijaCd = Math.max(0, g.paijaCd - dt);
-  g.paijaSay = Math.max(0, g.paijaSay - dt);
-  const pj = L.paija;
-  if (pj && g.paijaCd <= 0 && dist(h.x, h.y, pj.x, pj.y) < 50) {
-    g.paijaCd = 30; g.paijaSay = TEXT_TIME;
-    spawnItem(pj.x + 45, pj.y + 20);
-    g.hint = { kind: 'chest', t: 7 };
-    sfx('chest');
   }
   // The spring at Lielvārde brings strength back up to the best it has been.
   g.springCd = Math.max(0, g.springCd - dt);
@@ -2466,6 +2540,18 @@ function drawIcon(id, x, y, s = 1) {
       drawText(12, -12, 'z', 13, '#ffffff', 'rgba(30,40,80,0.8)');
       drawText(17, -21, 'z', 10, '#ffffff', 'rgba(30,40,80,0.8)');
       break;
+    case 'spidola': {
+      rr(-16, -10, 32, 30, 10, '#1e1a24');   // long black hair down both sides
+      circ(0, 2, 13, '#f0c49b');
+      ctx.fillStyle = '#1e1a24';
+      ctx.beginPath(); ctx.arc(0, 1, 14, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#dfe6ff'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, -13, 5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();   // a silver moon
+      circ(-5, 3, 2, '#2f6a4a'); circ(5, 3, 2, '#2f6a4a');
+      ctx.strokeStyle = '#a3263a'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0, 7, 4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      break;
+    }
     case 'kurbads': case 'koknesis': case 'spriditis': {
       const look = COMPANION_LOOK[id];
       circ(0, 2, 14, '#f0c49b');
@@ -2726,8 +2812,91 @@ function drawCompanion(a, t) {
   ctx.translate(a.x, a.y);
   shadow(16, 6);
   if (a.t < 3 && Math.floor(t * 8) % 2 === 0) ctx.globalAlpha = 0.5;
+  if (a.type === 'spidola') {   // always on her broom while she's with him, bobbing a little out of step
+    ctx.translate(0, -(24 + Math.sin(t * 5 + 1.3) * 5));
+    drawSpidola(a, t, true);
+    drawBroom(a.face, t);
+    ctx.restore();
+    return;
+  }
   if (look.small) ctx.scale(0.8, 0.8);
   drawPerson(a, look, t);
+  ctx.restore();
+}
+
+// Spīdola: long black hair, a dark blue dress with silver stars and a red sash, a silver moon in
+// her hair. Standing, she holds her broom upright; flying, she sits on it (drawn by the caller).
+function drawSpidola(o, t, fly) {
+  const f = o.face || 1, sway = Math.sin(t * 3) * 2;
+  if (!fly) { rr(-7, -4, 6, 5, 2, '#2a1d2a'); rr(2, -4, 6, 5, 2, '#2a1d2a'); }
+  const hy = -57;
+  rr(-12 - f * 2, hy - 6, 24, 44 + sway, 10, '#1e1a24');   // hair down her back, moving a little
+  ctx.beginPath(); ctx.moveTo(-9, -31); ctx.lineTo(9, -31); ctx.lineTo(17, -3); ctx.quadraticCurveTo(0, 2, -17, -3); ctx.closePath();
+  ctx.fillStyle = '#2c3570'; ctx.fill();
+  for (const [sx, sy] of [[-9, -10], [6, -18], [10, -7], [-3, -22]]) star5(sx, sy, 2.6, t * 0.5, '#dfe6ff');
+  rr(-9, -47, 18, 18, 5, '#2c3570');
+  ctx.fillStyle = '#c8102e'; ctx.fillRect(-10, -33, 20, 4);
+  if (fly) {   // both hands forward on the broom handle
+    rr(f * 4 - 2.5, -42, 14 * f, 5, 2.5, '#2c3570'); circ(f * 18, -40, 3, '#f0c49b');
+  } else {
+    // her broom, held upright beside her
+    ctx.fillStyle = '#7a4f28'; ctx.fillRect(f * 15 - 1.5, -70, 3, 66);
+    ctx.beginPath(); ctx.moveTo(f * 15 - 3, -10); ctx.lineTo(f * 15 - 9, 2); ctx.lineTo(f * 15 + 9, 2); ctx.lineTo(f * 15 + 3, -10); ctx.closePath();
+    ctx.fillStyle = '#d8b45a'; ctx.fill();
+    ctx.fillStyle = '#c8102e'; ctx.fillRect(f * 15 - 2.5, -12, 5, 3);
+    rr(f * 6, -45, 9 * f, 5, 2.5, '#2c3570'); circ(f * 15, -42, 3, '#f0c49b');
+    rr(-f * 13, -44, 5, 14, 2.5, '#2c3570'); circ(-f * 10.5, -29, 3, '#f0c49b');
+  }
+  circ(0, hy, 11, '#f0c49b');
+  ctx.fillStyle = '#1e1a24';
+  ctx.beginPath(); ctx.arc(0, hy - 1, 11.5, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#dfe6ff'; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.arc(0, hy - 13, 4.5, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+  circ(-4 + f * 1.5, hy + 1, 1.7, '#2f6a4a'); circ(4 + f * 1.5, hy + 1, 1.7, '#2f6a4a');
+  circ(-7, hy + 5, 2, 'rgba(255,120,120,0.4)'); circ(7, hy + 5, 2, 'rgba(255,120,120,0.4)');
+  ctx.strokeStyle = '#a3263a'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(f * 1.5, hy + 4, 3.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+}
+
+// A witch circle (raganu aplis): a ring of red mushrooms and stones in darker grass, with Spīdola
+// in the middle when she's there. The back of the ring is drawn behind her, the front over her feet.
+function drawWitchCircle(hs, t) {
+  const g = game, here = !(g.ally && g.ally.type === hs.id), ready = here && g.houseCd[hs.id] <= 0;
+  ctx.save();
+  ctx.translate(hs.x, hs.y);
+  ctx.strokeStyle = 'rgba(30,60,25,0.3)'; ctx.lineWidth = 12;
+  ctx.beginPath(); ctx.ellipse(0, 0, 56, 24, 0, 0, TAU); ctx.stroke();
+  if (ready) {
+    const gs = 110 + Math.sin(t * 4) * 8;
+    ctx.globalAlpha = 0.6; ctx.drawImage(glowBlue, -gs / 2, -gs * 0.4, gs, gs * 0.8); ctx.globalAlpha = 1;
+  }
+  const ring = front => {
+    for (let k = 0; k < 12; k++) {
+      const a = k / 12 * TAU, x = Math.cos(a) * 56, y = Math.sin(a) * 24;
+      if ((y > 0) !== front) continue;
+      if (k % 2) { ell(x, y - 3, 6, 4.5, '#9c958a'); ell(x - 1, y - 5, 3, 1.6, '#bdb6aa'); }
+      else {
+        rr(x - 1.8, y - 8, 3.6, 8, 1.5, '#f2ead8');
+        ctx.beginPath(); ctx.ellipse(x, y - 8, 6.5, 5, 0, Math.PI, 0); ctx.fillStyle = '#c8302e'; ctx.fill();
+        circ(x - 2.5, y - 10, 1.1, '#fff'); circ(x + 2, y - 11, 1.1, '#fff');
+      }
+    }
+  };
+  ring(false);
+  if (here) {
+    if (!ready) ctx.globalAlpha = 0.55;
+    drawSpidola({ face: 1 }, t, false);
+    ctx.globalAlpha = 1;
+    if (!ready) zzz(16, -78, t);
+    else for (let k = 0; k < 3; k++) {   // sparkles rising around her
+      const p = (t * 0.6 + k / 3) % 1;
+      ctx.globalAlpha = 1 - p;
+      star5(Math.sin(k * 2.1 + t) * 34, -10 - p * 70, 3, t, '#fff3b0');
+      ctx.globalAlpha = 1;
+    }
+  }
+  ring(true);
+  drawText(0, 40, tr(COMPANIONS[hs.id].name), 16, '#ffffff');
   ctx.restore();
 }
 
@@ -3342,35 +3511,6 @@ function drawDecoy(d, t) {
   ctx.restore();
 }
 
-function drawPaija(t) {
-  const { x, y } = L.paija;
-  ctx.save();
-  ctx.translate(x, y);
-  shadow(15, 6);
-  const wave = game.paijaSay > 0 ? Math.sin(t * 12) * 0.5 : 0;
-  rr(-7, -10, 5, 10, 2, '#5a3d22'); rr(2, -10, 5, 10, 2, '#5a3d22');
-  ctx.beginPath(); ctx.moveTo(-9, -34); ctx.lineTo(9, -34); ctx.lineTo(16, -8); ctx.lineTo(-16, -8); ctx.closePath();
-  ctx.fillStyle = '#b3262e'; ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-  for (const yy of [-14, -20]) { ctx.beginPath(); ctx.moveTo(-14 + (yy + 8) * -0.25, yy); ctx.lineTo(14 - (yy + 8) * -0.25, yy); ctx.stroke(); }
-  rr(-8, -46, 16, 14, 4, '#fbf8f0');
-  ctx.save(); ctx.translate(10, -42); ctx.rotate(-0.6 + wave - (game.paijaSay > 0 ? 1.4 : 0));
-  rr(-2.5, 0, 5, 13, 2.5, '#f0c49b'); ctx.restore();
-  circ(-11, -36, 3.8, '#f0c49b');
-  const hy = -56;
-  ctx.strokeStyle = '#e2b54c'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-9, hy); ctx.lineTo(-11, hy + 20); ctx.moveTo(9, hy); ctx.lineTo(11, hy + 20); ctx.stroke();
-  circ(0, hy, 11, '#f0c49b');
-  ctx.fillStyle = '#e2b54c';
-  ctx.beginPath(); ctx.arc(0, hy - 1, 11.5, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fill();
-  const flowers = ['#ff5a5a', '#ffd84a', '#5ab0ff', '#ffffff', '#ff8ad8'];
-  for (let k = 0; k < 7; k++) circ(-10 + k * 3.3, hy - 9 - Math.sin(k / 6 * Math.PI) * 4, 2.6, flowers[k % 5]);
-  circ(-4, hy + 1, 1.7, '#2a1d14'); circ(4, hy + 1, 1.7, '#2a1d14');
-  ctx.strokeStyle = '#8a3b2a'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.arc(0, hy + 4, 3.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
-  ctx.restore();
-}
-
 // A tautumeita in folk costume: a long striped skirt, a white blouse, a shawl with a brooch (sakta),
 // a braid, and a flower wreath or a beaded crown.
 function drawMaiden(m, t) {
@@ -3528,8 +3668,9 @@ function drawHouse(hs, t) {
   for (let y = -H + 7; y < 0; y += 7.5) { ctx.beginPath(); ctx.moveTo(-W / 2, y); ctx.lineTo(W / 2, y); ctx.stroke(); }
   for (let y = -H + 4; y < 0; y += 7.5) for (const sx of [-1, 1]) circ(sx * (W / 2 + 1), y, 3.6, '#c08a55');
   for (const wx of [-30, 30]) {
-    rr(wx - 9, -32, 18, 15, 2, '#fbf6ea');
-    ctx.fillStyle = '#7cc6ff'; ctx.fillRect(wx - 7, -30, 6, 5); ctx.fillRect(wx + 1, -30, 6, 5); ctx.fillRect(wx - 7, -24, 6, 5); ctx.fillRect(wx + 1, -24, 6, 5);
+    // a small window hole with open wooden shutters: no glass yet
+    rr(wx - 6, -30, 12, 10, 2, '#2a1d14');
+    ctx.fillStyle = '#7a4f28'; ctx.fillRect(wx - 12, -31, 5, 12); ctx.fillRect(wx + 7, -31, 5, 12);
   }
   rr(-11, -32, 22, 32, 3, '#5e3b1a');
   ctx.fillStyle = '#7a4f28'; ctx.fillRect(-1, -30, 2, 30);
@@ -3710,17 +3851,22 @@ function drawTown(tn) {
     ctx.save();
     ctx.translate(tn.x + hs.x, tn.y + hs.y);
     ctx.scale(hs.s, hs.s);
-    if (hs.spire) {
-      ctx.fillStyle = '#c9b9a0'; ctx.fillRect(-9, -50, 18, 50);
-      tri(-10, -50, 10, -50, 0, -100, '#2f6a55');
-      circ(0, -102, 2.5, '#e3b23c');
-    } else {
-      shadow(18, 5);
+    shadow(18, 5);
+    if (tn.town) {   // the towns (Cēsis, Kuldīga, Liepāja): white walls and red roofs
       ctx.fillStyle = '#f2e6cf'; ctx.fillRect(-14, -20, 28, 20);
       tri(-18, -20, 18, -20, 0, -38, '#b5402f');
       ctx.fillStyle = '#6b4424'; ctx.fillRect(-4, -11, 8, 11);
       ctx.fillStyle = '#7cc6ff'; ctx.fillRect(6, -15, 5, 5);
+      ctx.restore();
+      continue;
     }
+    // elsewhere a log house with a thatched roof and a small window hole
+    ctx.fillStyle = '#9b6a3c'; ctx.fillRect(-14, -20, 28, 20);
+    ctx.fillStyle = '#6e4622';
+    for (let y = -15; y < 0; y += 5) ctx.fillRect(-14, y, 28, 1.2);
+    tri(-19, -19, 19, -19, 0, -40, '#d8b45a');
+    ctx.fillStyle = '#5e3b1a'; ctx.fillRect(-4, -11, 8, 11);
+    ctx.fillStyle = '#2a1d14'; ctx.fillRect(6, -15, 4, 3);
     ctx.restore();
   }
 
@@ -3792,6 +3938,22 @@ const CROPS = {
   wheat: ['#e8c95a', '#c9a63a', '#f3dc84'], rye: ['#d6c470', '#a99a48', '#e6d78f'], flax: ['#8fb4e8', '#5d86c2', '#b9d2f4'],
 };
 // Drawn once into the ground tiles, so the rows stand still.
+// A field is drawn once, at the tiles' zoom, into its own canvas (a square that holds it turned,
+// with its haystacks), and that is stamped into each ground tile it reaches: drawing its rows of
+// crops again for every tile cost a lot when tiles were made.
+function fieldSprite(f, zoom) {
+  if (f.sprite && f.spriteZoom === zoom) return f.sprite;
+  const fr = Math.hypot(f.w, f.h) / 2 + 40;
+  const c = document.createElement('canvas');
+  c.width = c.height = Math.ceil(2 * fr * zoom);
+  const main = ctx;
+  ctx = c.getContext('2d');
+  ctx.setTransform(zoom, 0, 0, zoom, (fr - f.x) * zoom, (fr - f.y) * zoom);
+  drawField(f);
+  ctx = main;
+  f.sprite = c; f.spriteZoom = zoom;
+  return c;
+}
 function drawField(f) {
   const t = 0;
   const C = CROPS[f.crop];
@@ -3864,20 +4026,152 @@ function drawBearIcon(x, y, s) {
   ctx.restore();
 }
 
-// A wall of stone or brick with battlements along its top.
-function castleWall(x, y, w, h, fill, line) {
-  ctx.fillStyle = fill; ctx.fillRect(x, y - h, w, h);
-  for (let k = x; k < x + w - 4; k += 16) ctx.fillRect(k, y - h - 9, 9, 10);
-  ctx.strokeStyle = line; ctx.lineWidth = 1;
-  for (let yy = y - h + 9; yy < y; yy += 9) { ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w, yy); ctx.stroke(); }
-}
 function castleTower(x, y, r, h, fill, roof, line) {
   ctx.fillStyle = fill; ctx.fillRect(x - r, y - h, r * 2, h);
   ell(x, y, r, r * 0.35, fill);
   ctx.strokeStyle = line; ctx.lineWidth = 1;
-  for (let yy = y - h + 10; yy < y; yy += 10) { ctx.beginPath(); ctx.moveTo(x - r, yy); ctx.lineTo(x + r, yy); ctx.stroke(); }
+  ctx.beginPath();
+  for (let yy = y - h + 10; yy < y; yy += 10) { ctx.moveTo(x - r, yy); ctx.lineTo(x + r, yy); }
+  ctx.stroke();
   rr(x - 4, y - h * 0.6, 8, 13, 4, '#2a2420');
   if (roof) tri(x - r - 5, y - h, x + r + 5, y - h, x, y - h - r * 2.2, roof);
+}
+
+// ---------- Building sites ----------
+// In Lāčplēsis's time Koknese, Turaida and Cēsis were not ruins: the old wooden hillforts still
+// stood, and the first stone or brick castles were going up beside them. These pieces draw those
+// building sites (there are no builders on purpose).
+const WOOD = '#8a5a2b', WOOD_D = '#6b4420', WOOD_L = '#a8733d', ROPE = '#d9c49a';
+const STONE = '#aaa398', STONE_D = 'rgba(60,50,40,0.25)', BRICK = '#b24a32', BRICK_D = 'rgba(70,20,10,0.28)';
+// a repeatable "random" so stones and logs look uneven but the same every frame
+const siteHash = n => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
+
+// A fence of upright pointed logs from x0 to x1, h high.
+function palisade(x0, x1, y, h) {
+  for (let x = x0, k = 0; x < x1; x += 9, k++) {
+    const hh = h + (siteHash(k + x0) - 0.5) * 8, c = k % 2 ? WOOD : WOOD_L;
+    ctx.fillStyle = c; ctx.fillRect(x, y - hh, 8, hh);
+    tri(x, y - hh, x + 8, y - hh, x + 4, y - hh - 7, c);
+  }
+  ctx.fillStyle = WOOD_D; ctx.fillRect(x0, y - h * 0.62, x1 - x0, 4);   // the cross beam
+}
+// A square tower of stacked logs with a pointed shingle roof.
+function logTower(x, y, w, h) {
+  for (let yy = y - h, k = 0; yy < y; yy += 8, k++) rr(x - w / 2 - 2, yy, w + 4, 8, 4, k % 2 ? WOOD : WOOD_L);
+  rr(x - 5, y - h * 0.55, 10, 12, 3, '#2a2016');
+  tri(x - w / 2 - 8, y - h, x + w / 2 + 8, y - h, x, y - h - w * 0.9, '#5a4a3a');
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let k = 1; k < 4; k++) {
+    const yy = y - h - w * 0.9 * k / 4, half = (w / 2 + 8) * (1 - k / 4);
+    ctx.moveTo(x - half, yy); ctx.lineTo(x + half, yy);
+  }
+  ctx.stroke();
+}
+// An unfinished wall: its top steps up and down (tops[] gives the height of each stretch), with
+// stone courses and blocks drawn in.
+function rawWall(x, y, tops, fill, line, block = 16) {
+  ctx.fillStyle = fill;
+  tops.forEach((h, k) => ctx.fillRect(x + k * block, y - h, block + 0.5, h));
+  ctx.strokeStyle = line; ctx.lineWidth = 1;
+  ctx.beginPath();
+  tops.forEach((h, k) => {
+    for (let yy = y - 9, row = 0; yy > y - h; yy -= 9, row++) {
+      ctx.moveTo(x + k * block, yy); ctx.lineTo(x + (k + 1) * block, yy);
+      const bx = x + k * block + (row % 2 ? 8 : 0);
+      ctx.moveTo(bx, yy); ctx.lineTo(bx, yy + 9);
+    }
+  });
+  ctx.stroke();
+}
+// A round tower stump, unfinished at the top.
+function rawTower(x, y, r, h, fill, line) {
+  ctx.fillStyle = fill;
+  ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x - r, y - h + 6); ctx.lineTo(x - r * 0.4, y - h);
+  ctx.lineTo(x + r * 0.1, y - h + 8); ctx.lineTo(x + r * 0.6, y - h + 2); ctx.lineTo(x + r, y - h + 12); ctx.lineTo(x + r, y); ctx.fill();
+  ell(x, y, r, r * 0.35, fill);
+  ctx.strokeStyle = line; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let yy = y - 9; yy > y - h + 12; yy -= 9) { ctx.moveTo(x - r, yy); ctx.lineTo(x + r, yy); }
+  ctx.stroke();
+  rr(x - 4, y - h * 0.45, 8, 13, 4, '#2a2420');
+}
+// Scaffolding: poles, planks at each level and a ladder up the side.
+function scaffold(x, y, w, h, levels) {
+  const n = Math.round(w / 26);
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let k = 0; k <= n; k++) { const px = x + k * w / n; ctx.moveTo(px, y); ctx.lineTo(px, y - h - 6); }
+  ctx.stroke();
+  ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let l = 1; l <= levels; l++) {
+    const py = y - h * l / levels;
+    rr(x - 3, py - 2, w + 6, 4, 2, WOOD_L);
+    if (l < levels) { ctx.moveTo(x, py); ctx.lineTo(x + w / 2, py - h / levels); }
+  }
+  ctx.stroke();
+  const lx = x + w + 4;   // the ladder
+  ctx.strokeStyle = WOOD; ctx.lineWidth = 1.6; ctx.beginPath();
+  ctx.moveTo(lx, y); ctx.lineTo(lx + 4, y - h); ctx.moveTo(lx + 9, y); ctx.lineTo(lx + 13, y - h);
+  for (let yy = y - 6; yy > y - h; yy -= 7) { const f = (y - yy) / h * 4; ctx.moveTo(lx + f, yy); ctx.lineTo(lx + 9 + f, yy); }
+  ctx.stroke();
+}
+// A treadwheel crane: its wheel turns, and the stone on its rope goes slowly up and down.
+function crane(x, y, h, t) {
+  const r = 20, jx = x + 46, jy = y - h - 14;
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 12, y); ctx.lineTo(x, y - h); ctx.lineTo(x + 12, y); ctx.moveTo(x, y - h); ctx.lineTo(jx, jy); ctx.stroke();
+  ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x, y - h * 0.6); ctx.lineTo(jx - 6, jy + 2); ctx.stroke();
+  const wx = x - 4, wy = y - r - 2, a = t * 1.3;
+  ctx.strokeStyle = WOOD; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(wx, wy, r, 0, TAU); ctx.stroke();
+  ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let k = 0; k < 4; k++) {
+    const c = Math.cos(a + k * Math.PI / 4) * r, d = Math.sin(a + k * Math.PI / 4) * r;
+    ctx.moveTo(wx + c, wy + d); ctx.lineTo(wx - c, wy - d);
+  }
+  ctx.stroke();
+  const sy = y - h * 0.45 + Math.sin(t * 0.8) * h * 0.2;
+  ctx.strokeStyle = ROPE; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(jx, sy - 6); ctx.lineTo(jx, jy); ctx.lineTo(x, y - h); ctx.lineTo(wx, wy); ctx.stroke();
+  rr(jx - 8, sy - 6, 16, 11, 3, '#a39d92');
+}
+// A pile of building stones: a bottom row and a shorter one on top.
+function stonePile(x, y, n) {
+  const low = Math.ceil(n * 0.6);
+  for (let k = 0; k < n; k++) {
+    const top = k >= low, i = top ? k - low : k, cnt = top ? n - low : low;
+    rr(x + (i - cnt / 2) * 13 + (top ? 6 : 0), y - (top ? 18 : 9), 13, 9, 3, siteHash(k + x) > 0.5 ? STONE : '#958e83');
+  }
+}
+// A stack of fresh bricks.
+function brickStack(x, y, rows, cols) {
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols - (r % 2); c++) {
+    ctx.fillStyle = (r + c) % 3 ? BRICK : '#9e3f2a';
+    ctx.fillRect(x + c * 9 + (r % 2) * 4.5, y - (r + 1) * 5, 8, 4);
+  }
+}
+// A pile of logs, their ends showing.
+function logPile(x, y) {
+  for (const [dx, dy] of [[0, 0], [11, 0], [22, 0], [5.5, -9], [16.5, -9], [11, -18]]) {
+    ell(x + dx, y + dy - 5, 6, 5, WOOD); ell(x + dx, y + dy - 5, 3.5, 3, '#c89a62');
+  }
+}
+// A brick kiln with its fire glowing and smoke drifting up.
+function kiln(x, y, t) {
+  ctx.fillStyle = '#8f6b52';
+  ctx.beginPath(); ctx.moveTo(x - 20, y); ctx.lineTo(x - 15, y - 30); ctx.lineTo(x + 15, y - 30); ctx.lineTo(x + 20, y); ctx.fill();
+  rr(x - 7, y - 14, 14, 14, 6, '#2a1a12');
+  ell(x, y - 7, 4, 4, `rgba(255,${Math.round(140 + 40 * Math.sin(t * 6))},40,0.9)`);
+  for (let k = 0; k < 4; k++) {
+    const p = (t * 0.35 + k / 4) % 1;
+    ell(x + Math.sin(p * 5 + k) * 6, y - 34 - p * 50, 6 + p * 10, 5 + p * 8, `rgba(220,215,205,${0.55 * (1 - p)})`);
+  }
+}
+// A wooden sledge with a squared stone on it.
+function sledge(x, y) {
+  ctx.strokeStyle = WOOD_D; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 16, y); ctx.lineTo(x + 14, y); ctx.quadraticCurveTo(x + 20, y, x + 20, y - 5); ctx.stroke();
+  rr(x - 13, y - 13, 24, 11, 3, STONE);
 }
 
 // The big buildings of some locations, standing on their footprint (see LANDMARKS).
@@ -3886,66 +4180,38 @@ function drawLandmark(lm, t) {
   ctx.translate(lm.x, lm.y);
   ell(0, 2, LANDMARKS[lm.type].w + 16, 18, 'rgba(0,0,0,0.2)');
   switch (lm.type) {
-    case 'castle': {   // Cēsis: grey stone, two towers and a gate
-      const S = '#aaa398', D = 'rgba(60,50,40,0.25)';
-      castleWall(-80, 0, 160, 62, S, D);
+    case 'koknese': {   // Vetseke's wooden fort, and a stone castle going up beside it
+      palisade(-108, -26, -14, 46);
+      logTower(-84, -14, 26, 78);
+      rawWall(-30, 0, [30, 38, 38, 46, 46, 40, 34, 52, 60, 60], STONE, STONE_D);
+      rawTower(78, 0, 20, 74, '#9c958a', STONE_D);
+      scaffold(8, 0, 70, 54, 2);
+      crane(-40, 0, 70, t);
+      stonePile(-74, 8, 7);
+      rr(-24, -2, 24, 10, 3, WOOD); ell(-12, -2, 12, 3.5, '#e6e0d2');   // a tub of mortar
+      break;
+    }
+    case 'turaida': {   // Kaupo's wooden castle, and the new brick one: its round tower already done
+      palisade(-86, -20, -16, 40);
+      logTower(-48, -16, 22, 62);
+      rawWall(-36, 0, [24, 32, 32, 40, 48, 48], BRICK, BRICK_D);
+      scaffold(-34, 0, 40, 38, 2);
+      castleTower(36, 0, 26, 118, BRICK, '#4b3a34', BRICK_D);
+      kiln(-80, 8, t);
+      brickStack(-52, 10, 4, 4);
+      break;
+    }
+    case 'cesis': {   // the Vends' fort on its mound, and the stone castle's gate wall and first tower
+      ell(60, -12, 56, 14, 'rgba(255,255,255,0.12)');
+      palisade(18, 104, -16, 42);
+      logTower(84, -18, 24, 70);
+      rawWall(-62, 0, [52, 56, 60, 62, 62, 60, 50, 42], STONE, STONE_D);
       rr(-16, -38, 32, 38, 14, '#3a2e24');
-      castleTower(-82, 0, 22, 112, '#9c958a', '#3f4a52', D);
-      castleTower(82, 0, 22, 96, '#9c958a', '#3f4a52', D);
-      ctx.fillStyle = '#5e3b1a'; ctx.fillRect(-83, -190, 3, 32);
-      drawFlag(-80, -190, 26, 14);
-      break;
-    }
-    case 'ruins': {    // Koknese: broken grey walls without roofs
-      const S = '#9f998e', D = 'rgba(60,50,40,0.25)';
-      ctx.fillStyle = S;
-      ctx.beginPath(); ctx.moveTo(-92, 0); ctx.lineTo(-92, -70); ctx.lineTo(-74, -82); ctx.lineTo(-60, -64); ctx.lineTo(-40, -76);
-      ctx.lineTo(-22, -50); ctx.lineTo(-6, -58); ctx.lineTo(10, -34); ctx.lineTo(30, -44); ctx.lineTo(48, -30); ctx.lineTo(60, -58);
-      ctx.lineTo(76, -96); ctx.lineTo(92, -88); ctx.lineTo(92, 0); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = D; ctx.lineWidth = 1;
-      for (let yy = -80; yy < 0; yy += 9) { ctx.beginPath(); ctx.moveTo(-92, yy); ctx.lineTo(92, yy); ctx.stroke(); }
-      for (const wx of [-70, -40, 72]) rr(wx - 6, -52, 12, 20, 6, '#3a3028');
-      rr(-10, -30, 20, 30, 9, '#3a3028');
-      for (const [gx, gy] of [[-50, -2], [36, -4], [-80, -5]]) ell(gx, gy, 10, 5, '#5e8f3f');
-      break;
-    }
-    case 'redcastle': {  // Turaida: red brick with a big round tower
-      const B = '#b24a32', D = 'rgba(70,20,10,0.25)';
-      castleWall(-70, 0, 140, 56, '#a94530', D);
-      castleTower(24, 0, 28, 140, B, '#4b3a34', D);
-      castleTower(-60, 0, 16, 80, B, '#4b3a34', D);
-      rr(-30, -32, 24, 32, 11, '#3a2018');
-      break;
-    }
-    case 'palace': {   // Rundāle: a long yellow palace with a higher middle
-      ctx.fillStyle = '#ecd58a'; ctx.fillRect(-170, -70, 340, 70);
-      ctx.fillStyle = '#f2df9e'; ctx.fillRect(-50, -92, 100, 92);
-      ctx.fillStyle = '#56656a';
-      ctx.beginPath(); ctx.moveTo(-176, -70); ctx.lineTo(-160, -96); ctx.lineTo(160, -96); ctx.lineTo(176, -70); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-56, -92); ctx.lineTo(-40, -122); ctx.lineTo(40, -122); ctx.lineTo(56, -92); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#fffaf0';
-      for (let x = -160; x < 160; x += 22) if (Math.abs(x + 5) > 50) { ctx.fillRect(x, -56, 10, 18); ctx.fillRect(x, -30, 10, 18); }
-      for (let x = -40; x < 40; x += 20) { ctx.fillRect(x, -80, 10, 18); ctx.fillRect(x, -54, 10, 18); }
-      rr(-12, -28, 24, 28, 10, '#6b4a2b');
-      circ(0, -108, 7, '#e3b23c');
-      break;
-    }
-    case 'lighthouse': {  // Kolka: a striped lighthouse with a turning beam
-      ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-12, -140); ctx.lineTo(12, -140); ctx.lineTo(18, 0); ctx.closePath();
-      ctx.fillStyle = '#fbf8f0'; ctx.fill();
-      ctx.save(); ctx.clip();
-      ctx.fillStyle = '#c8302e';
-      for (let y = -125; y < 0; y += 44) ctx.fillRect(-20, y, 40, 18);
-      ctx.restore();
-      rr(-16, -150, 32, 12, 3, '#3a3f48');
-      const a = t * 1.6;
-      ctx.save();
-      ctx.globalAlpha = 0.25 + 0.2 * Math.max(0, Math.cos(a));
-      ctx.beginPath(); ctx.moveTo(0, -162); ctx.lineTo(Math.cos(a) * 180, -180); ctx.lineTo(Math.cos(a) * 180, -140); ctx.closePath();
-      ctx.fillStyle = '#fff6b0'; ctx.fill();
-      ctx.restore();
-      rr(-10, -174, 20, 24, 4, '#ffe680');
-      tri(-14, -174, 14, -174, 0, -190, '#c8302e');
+      rawWall(-100, 0, [96, 104, 90], '#9c958a', STONE_D, 13.4);
+      crane(-80, -100, 40, t);
+      scaffold(-98, 0, 36, 92, 3);
+      sledge(40, 8);
+      logPile(-48, 8);
       break;
     }
     case 'tower': {   // Gaiziņkalns: a tall wooden lookout tower on the top of the hill
@@ -3965,6 +4231,37 @@ function drawLandmark(lm, t) {
       tri(-24, -200, 24, -200, 0, -222, '#5e3b1a');
       ctx.fillStyle = '#5e3b1a'; ctx.fillRect(-1, -240, 2, 20);
       drawFlag(1, -240, 20, 11);
+      break;
+    }
+    case 'ruins': {    // Rāzna (Volkenberg on Mākoņkalns): broken grey walls without roofs
+      const S = '#9f998e', D = 'rgba(60,50,40,0.25)';
+      ctx.fillStyle = S;
+      ctx.beginPath(); ctx.moveTo(-92, 0); ctx.lineTo(-92, -70); ctx.lineTo(-74, -82); ctx.lineTo(-60, -64); ctx.lineTo(-40, -76);
+      ctx.lineTo(-22, -50); ctx.lineTo(-6, -58); ctx.lineTo(10, -34); ctx.lineTo(30, -44); ctx.lineTo(48, -30); ctx.lineTo(60, -58);
+      ctx.lineTo(76, -96); ctx.lineTo(92, -88); ctx.lineTo(92, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = D; ctx.lineWidth = 1;
+      for (let yy = -80; yy < 0; yy += 9) { ctx.beginPath(); ctx.moveTo(-92, yy); ctx.lineTo(92, yy); ctx.stroke(); }
+      for (const wx of [-70, -40, 72]) rr(wx - 6, -52, 12, 20, 6, '#3a3028');
+      rr(-10, -30, 20, 30, 9, '#3a3028');
+      for (const [gx, gy] of [[-50, -2], [36, -4], [-80, -5]]) ell(gx, gy, 10, 5, '#5e8f3f');
+      break;
+    }
+    case 'lighthouse': {  // Kolka: a striped lighthouse with a turning beam
+      ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-12, -140); ctx.lineTo(12, -140); ctx.lineTo(18, 0); ctx.closePath();
+      ctx.fillStyle = '#fbf8f0'; ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = '#c8302e';
+      for (let y = -125; y < 0; y += 44) ctx.fillRect(-20, y, 40, 18);
+      ctx.restore();
+      rr(-16, -150, 32, 12, 3, '#3a3f48');
+      const a = t * 1.6;
+      ctx.save();
+      ctx.globalAlpha = 0.25 + 0.2 * Math.max(0, Math.cos(a));
+      ctx.beginPath(); ctx.moveTo(0, -162); ctx.lineTo(Math.cos(a) * 180, -180); ctx.lineTo(Math.cos(a) * 180, -140); ctx.closePath();
+      ctx.fillStyle = '#fff6b0'; ctx.fill();
+      ctx.restore();
+      rr(-10, -174, 20, 24, 4, '#ffe680');
+      tri(-14, -174, 14, -174, 0, -190, '#c8302e');
       break;
     }
   }
@@ -4044,7 +4341,9 @@ function drawGroundLayer(tx, ty) {
   for (const r of L.rivers) if (r.name) drawRiverName(r);
   for (const f of L.fields) {
     const fr = Math.hypot(f.w, f.h) / 2 + 40;
-    if (f.x + fr > x0 && f.x - fr < x1 && f.y + fr > y0 && f.y - fr < y1) drawField(f);
+    if (f.x + fr > x0 && f.x - fr < x1 && f.y + fr > y0 && f.y - fr < y1) {
+      ctx.drawImage(fieldSprite(f, tileZoom || 1), f.x - fr, f.y - fr, 2 * fr, 2 * fr);
+    }
   }
   ctx.imageSmoothingEnabled = false;
   for (const d of L.decor) {
@@ -4100,12 +4399,24 @@ function groundTile(tx, ty, zoom) {
 function clearGroundTiles() { groundTiles.clear(); tileBytes = 0; }
 
 // Copy the tiles in view; then make at most one more just outside it, ready for when he walks on.
+function tileRange() {
+  return { tx0: Math.max(0, Math.floor(cam.x / TILE)), ty0: Math.max(0, Math.floor(cam.y / TILE)),
+    tx1: Math.min(Math.ceil(WORLD_W / TILE) - 1, Math.floor((cam.x + VW / Z) / TILE)),
+    ty1: Math.min(Math.ceil(WORLD_H / TILE) - 1, Math.floor((cam.y + VH / Z) / TILE)) };
+}
+// Whether the ground tiles will cover the whole view this frame. Filling the screen first is a
+// whole screen of pixels, which on a tablet costs about as much as the tiles themselves, so it's
+// only done when some of it would show: a tile not made yet, or a screen bigger than the place.
+function groundCovers() {
+  if (DPR * Z !== tileZoom || VW / Z > WORLD_W || VH / Z > WORLD_H) return false;
+  const { tx0, ty0, tx1, ty1 } = tileRange();
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (!groundTiles.has(tx + ',' + ty)) return false;
+  return true;
+}
 function drawGroundTiles() {
   const zoom = DPR * Z;
   if (zoom !== tileZoom) { clearGroundTiles(); tileZoom = zoom; }
-  const tx0 = Math.max(0, Math.floor(cam.x / TILE)), ty0 = Math.max(0, Math.floor(cam.y / TILE));
-  const tx1 = Math.min(Math.ceil(WORLD_W / TILE) - 1, Math.floor((cam.x + VW / Z) / TILE));
-  const ty1 = Math.min(Math.ceil(WORLD_H / TILE) - 1, Math.floor((cam.y + VH / Z) / TILE));
+  const { tx0, ty0, tx1, ty1 } = tileRange();
   // Arriving somewhere, the whole view is still under the fade-in, so its tiles are made a few a
   // frame instead of all in the first one, which stalled for a moment on a tablet.
   let spare = game.fade > 0.2 ? 3 : Infinity;
@@ -4144,8 +4455,7 @@ function drawGroundTiles() {
 function drawWorld() {
   const g = game, t = g.time;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.fillStyle = '#2f5a34';
-  ctx.fillRect(0, 0, VW, VH);
+  if (!groundCovers()) { ctx.fillStyle = '#2f5a34'; ctx.fillRect(0, 0, VW, VH); }
   ctx.setTransform(DPR * Z, 0, 0, DPR * Z, -cam.x * DPR * Z, -cam.y * DPR * Z);
   const vx0 = cam.x - 150, vy0 = cam.y - 150, vx1 = cam.x + VW / Z + 150, vy1 = cam.y + VH / Z + 250;
   const inView = (x, y) => x > vx0 && x < vx1 && y > vy0 && y < vy1;
@@ -4153,6 +4463,7 @@ function drawWorld() {
   drawGroundTiles();
 
   if (waterAnim) drawWater(t, vx0, vy0, vx1, vy1);
+  if (L.ferry && g.boat) drawFerryBoat(L.ferry, g.boat, t);
   if (L.village && inView(L.village.x, L.village.y)) drawTown(L.village);
   if (L.spring && inView(L.spring.x, L.spring.y)) drawSpring(t);
 
@@ -4164,8 +4475,9 @@ function drawWorld() {
   for (const e of g.enemies) if (inView(e.x, e.y)) list.push({ y: e.y, f: () => drawEnemy(e, t) });
   for (const d of g.decoys) if (inView(d.x, d.y)) list.push({ y: d.y, f: () => drawDecoy(d, t) });
   for (const m of g.maidens) if (inView(m.x, m.y)) list.push({ y: m.y, f: () => drawMaiden(m, t) });
-  if (L.paija && inView(L.paija.x, L.paija.y)) list.push({ y: L.paija.y, f: () => drawPaija(t) });
-  for (const hs of L.houses) if (inView(hs.x, hs.y)) list.push({ y: hs.y, f: () => drawHouse(hs, t) });
+  for (const hs of L.houses) {
+    if (inView(hs.x, hs.y)) list.push({ y: hs.y, f: () => (COMPANIONS[hs.id].circle ? drawWitchCircle : drawHouse)(hs, t) });
+  }
   if (L.landmark && inView(L.landmark.x, L.landmark.y)) list.push({ y: L.landmark.y, f: () => drawLandmark(L.landmark, t) });
   if (inView(L.sign.x, L.sign.y)) list.push({ y: L.sign.y, f: () => drawSign(L.sign, t) });
   if (g.ally) list.push({ y: g.ally.y, f: () => drawCompanion(g.ally, t) });
@@ -4181,11 +4493,6 @@ function drawWorld() {
   if (mult > 1) drawNumber(h.x + 46, h.y - 92 - lift, '×' + String(Math.round(mult * 100) / 100).replace('.', ','), YELLOW, 20);
   if (g.ally && g.ally.type === 'kurbads') drawNumber(g.ally.x, g.ally.y - 84, String(allyValue()), BLUE, 24);
   for (const b of g.bolts) drawBolt(b);
-  if (L.paija && inView(L.paija.x, L.paija.y)) {
-    const pp = L.paija;
-    if (g.paijaSay > 0) speech(pp.x, pp.y - 100, tr('Sveiks, Lāčplēsi!'));
-    else if (g.paijaCd <= 0) { circ(pp.x, pp.y - 90, 17, 'rgba(255,250,240,0.92)'); drawIcon('sword', pp.x, pp.y - 90, 0.6); }
-  }
 
   for (const m of g.maidens) {
     if (!inView(m.x, m.y)) continue;
@@ -4235,6 +4542,46 @@ function drawWater(t, x0, y0, x1, y1) {
   }
   if (L.falls) drawFalls(L.falls, t);
   for (const b of L.bridges) drawBridge(b);
+  if (L.ferry) drawFerryLandings(L.ferry);
+}
+
+// The ferry's landings: short plank jetties out from each bank. Like bridges, drawn top-down along
+// the crossing.
+function drawFerryLandings(f) {
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(Math.atan2(f.py, f.px));
+  for (const s of [-1, 1]) {
+    const x0 = s * (f.run + 44), x1 = s * (f.dock + 10), lo = Math.min(x0, x1), w = Math.abs(x1 - x0);
+    ctx.fillStyle = 'rgba(10,40,70,0.25)'; ctx.fillRect(lo, -18, w, 40);
+    for (const py of [-16, 14]) for (let k = 0; k < 3; k++) circ(x0 + (x1 - x0) * k / 3, py, 4, '#5e3b1a');   // posts
+    ctx.fillStyle = '#a8733d'; ctx.fillRect(lo, -16, w, 32);
+    ctx.strokeStyle = '#6e4622'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = lo + 8; x < lo + w; x += 8) { ctx.moveTo(x, -16); ctx.lineTo(x, 16); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// The ferry boat itself: a simple wooden rowing boat, seen from above, rocking a little.
+function drawFerryBoat(f, b, t) {
+  ctx.save();
+  ctx.translate(f.x + f.px * b.pos * f.run, f.y + f.py * b.pos * f.run);
+  ctx.rotate(Math.atan2(f.py, f.px) + Math.sin(t * 2) * 0.03);
+  ell(0, 6, 46, 20, 'rgba(10,40,70,0.3)');
+  const hull = (rx, ry, c) => {
+    ctx.beginPath(); ctx.moveTo(-rx, 0);
+    ctx.quadraticCurveTo(-rx * 0.6, -ry, 0, -ry); ctx.quadraticCurveTo(rx * 0.6, -ry, rx, 0);
+    ctx.quadraticCurveTo(rx * 0.6, ry, 0, ry); ctx.quadraticCurveTo(-rx * 0.6, ry, -rx, 0);
+    ctx.fillStyle = c; ctx.fill();
+  };
+  hull(44, 19, '#6e4622');
+  hull(38, 14, '#a8733d');
+  ctx.strokeStyle = 'rgba(70,40,15,0.5)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-34, -5); ctx.lineTo(34, -5); ctx.moveTo(-34, 5); ctx.lineTo(34, 5); ctx.stroke();
+  for (const sx of [-20, 20]) { ctx.fillStyle = '#7a4f28'; ctx.fillRect(sx - 3, -14, 6, 28); }   // seats
+  ctx.restore();
 }
 
 function drawWaterName(x, y, a, name, size) {
@@ -4251,7 +4598,7 @@ function drawRiverName(r) {
     run += dist(p.x, p.y, r.pts[k - 1].x, r.pts[k - 1].y);
     if (run < next) continue;
     if (p.x < 160 || p.y < 110 || p.x > WORLD_W - 160 || p.y > WORLD_H - 110) continue;
-    if (L.bridges.some(b => dist(b.x, b.y, p.x, p.y) < 220) || (L.falls && dist(L.falls.x, L.falls.y, p.x, p.y) < 220)) continue;
+    if (L.bridges.some(b => dist(b.x, b.y, p.x, p.y) < 220) || (L.ferry && dist(L.ferry.x, L.ferry.y, p.x, p.y) < 220) || (L.falls && dist(L.falls.x, L.falls.y, p.x, p.y) < 220)) continue;
     next = run + 1000;
     const a0 = r.pts[k - 1], a1 = r.pts[k + 1];
     let a = Math.atan2(a1.y - a0.y, a1.x - a0.x);
@@ -4431,6 +4778,30 @@ function mmRect() {
 function muteRect() { const m = mmRect(); return { x: VW - 34, y: m.y + m.h + 50, r: 20 }; }
 function newGameRect() { const m = muteRect(); return { x: m.x, y: m.y + 50, r: 20 }; }
 
+// Parts of the HUD that seldom change (the strength panel, the minimap with its frame, buttons and
+// name) are drawn once into small canvases at the screen's resolution and copied each frame, on
+// whole pixels; `key` says when one has to be drawn again. Outlined text, the bear and the
+// sound button's emoji were a good part of drawing the HUD every frame.
+const hudCache = new Map();
+function cachedHud(name, key, x, y, w, h, draw) {
+  const px = Math.floor(x * DPR), py = Math.floor(y * DPR);
+  key += '|' + DPR + '|' + px + ',' + py;
+  let c = hudCache.get(name);
+  if (!c || c.key !== key) {
+    c = { cv: document.createElement('canvas'), key };
+    c.cv.width = Math.ceil((x + w) * DPR) - px; c.cv.height = Math.ceil((y + h) * DPR) - py;
+    const main = ctx;
+    ctx = c.cv.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, -px, -py);
+    draw();
+    ctx = main;
+    hudCache.set(name, c);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(c.cv, px, py);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
 function drawHUD() {
   const g = game;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -4438,10 +4809,12 @@ function drawHUD() {
   const txt = String(curPower());
   ctx.font = `900 40px ${FONT}`;
   const w = Math.max(150, ctx.measureText(txt).width + 90);
-  rr(12, 12, w, 64, 16, 'rgba(255,250,240,0.92)');
-  ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 3; ctx.stroke();
-  drawBearIcon(46, 46, 0.95);
-  drawNumber(46 + (w - 34) / 2 + 4, 45, txt, BLUE, 40);
+  cachedHud('power', txt, 8, 8, w + 10, 72, () => {
+    rr(12, 12, w, 64, 16, 'rgba(255,250,240,0.92)');
+    ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 3; ctx.stroke();
+    drawBearIcon(46, 46, 0.95);
+    drawNumber(46 + (w - 34) / 2 + 4, 45, txt, BLUE, 40);
+  });
   // active gear and helper, with timer rings
   const slots = [];
   for (const k in g.fx) if (g.fx[k] > 0) slots.push([k, g.fx[k] / FX_INFO[k].dur]);
@@ -4454,33 +4827,36 @@ function drawHUD() {
     drawIcon(k, x, 104, 0.72);
     x += 54;
   }
-  // minimap
-  const m = mmRect();
-  rr(m.x - 4, m.y - 4, m.w + 8, m.h + 8, 10, 'rgba(255,250,240,0.92)');
-  ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 3; ctx.stroke();
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(L.mmCanvas, m.x, m.y, m.w, m.h);
+  // minimap, its buttons and the place's name, cached; the dots on it are drawn live
+  const m = mmRect(), mr = muteRect(), nr = newGameRect(), name = tr(g.loc.name);
+  ctx.font = `800 15px ${FONT}`;
+  const nameW = ctx.measureText(name).width + 12, nameX = m.x + m.w / 2 + 10;
+  const left = Math.min(m.x - 24, nameX - nameW / 2);
+  cachedHud('minimap', L.def.id + '|' + L.mmVersion + '|' + name + '|' + muted + '|' + VW, left, m.y - 8,
+    VW - left, nr.y + nr.r + 4 - (m.y - 8), () => {
+      rr(m.x - 4, m.y - 4, m.w + 8, m.h + 8, 10, 'rgba(255,250,240,0.92)');
+      ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(L.mmCanvas, m.x, m.y, m.w, m.h);
+      const ss = m.x + L.sign.x * m.w / (GW * CELL), sy = m.y + L.sign.y * m.w / (GW * CELL);
+      rr(ss - 5, sy - 5, 10, 10, 2, '#c89a5a');
+      // the minimap opens the map of Latvia
+      circ(m.x + 4, m.y + m.h, 17, 'rgba(255,250,240,0.97)');
+      ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(m.x + 4, m.y + m.h, 17, 0, TAU); ctx.stroke();
+      drawIcon('map', m.x + 4, m.y + m.h, 0.62);
+      drawText(nameX, m.y + m.h + 18, name, 15, '#ffffff');
+      circ(mr.x, mr.y, mr.r, 'rgba(255,250,240,0.92)');
+      ctx.font = `20px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      ctx.fillText(muted ? '🔇' : '🔊', mr.x, mr.y + 1);
+      circ(nr.x, nr.y, nr.r, 'rgba(255,250,240,0.92)');
+      drawIcon('restart', nr.x, nr.y, 0.55);
+    });
   const sx = m.w / (GW * CELL);
   const hx = m.x + g.hero.x * sx, hy = m.y + g.hero.y * sx;
   circ(hx, hy, 5 + Math.sin(g.time * 6), BLUE);
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 5, 0, TAU); ctx.stroke();
   for (const e of g.enemies) if (e.kind === 'boss' && e.fleeing === undefined) circ(m.x + e.x * sx, m.y + e.y * sx, 4, RED);
   for (const md of g.maidens) if (md.cd <= 0) circ(m.x + md.x * sx, m.y + md.y * sx, 3.5, '#ff6fc0');
-  const ss = m.x + L.sign.x * sx, sy = m.y + L.sign.y * sx;
-  rr(ss - 5, sy - 5, 10, 10, 2, '#c89a5a');
-  // the minimap opens the map of Latvia
-  circ(m.x + 4, m.y + m.h, 17, 'rgba(255,250,240,0.97)');
-  ctx.strokeStyle = '#9e1b22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(m.x + 4, m.y + m.h, 17, 0, TAU); ctx.stroke();
-  drawIcon('map', m.x + 4, m.y + m.h, 0.62);
-  drawText(m.x + m.w / 2 + 10, m.y + m.h + 18, tr(g.loc.name), 15, '#ffffff');
-  // mute
-  const mr = muteRect();
-  circ(mr.x, mr.y, mr.r, 'rgba(255,250,240,0.92)');
-  ctx.font = `20px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
-  ctx.fillText(muted ? '🔇' : '🔊', mr.x, mr.y + 1);
-  const nr = newGameRect();
-  circ(nr.x, nr.y, nr.r, 'rgba(255,250,240,0.92)');
-  drawIcon('restart', nr.x, nr.y, 0.55);
   // banner
   if (g.banner) {
     const b = g.banner;

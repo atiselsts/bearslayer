@@ -28,10 +28,10 @@ save keeps only what you really win.
 To pick the language from the address, add `?lang=en` or `?lang=lv` (`index.html?lang=en`).
 
 If frames get too slow, the game first stops the water moving (waves, river flow, the waterfall),
-then lowers the drawing resolution. For checking speed on a device, the frame rate and resolution
-show in a corner for now (`?fps=0` hides them; `~` means the water has stopped), `?water=still`
-stops the water from the start, and `?jods=live` draws Jods fully every frame instead of from his
-cached body (`index.html?water=still&jods=live`).
+then lowers the drawing resolution. For checking speed on a device, `?fps=1` shows the frame rate
+and resolution in a corner (`~` means the water has stopped), `?water=still` stops the water from
+the start, and `?jods=live` draws Jods fully every frame instead of from his cached body
+(`index.html?fps=1&water=still&jods=live`).
 
 ## How it plays
 
@@ -63,7 +63,8 @@ cached body (`index.html?water=still&jods=live`).
   around; major ones (iron club, Pērkons's axe, chain mail, Spīdola's broom, a sleep flute) come
   from chests and tautumeitas, and now and then lie on the ground. Each lasts a while and shows on him.
 - **Helpers** live in log houses: Kurbads adds his strength in fights, Koknesis finds weapons, and
-  Sprīdītis stops the drain and points to chests.
+  Sprīdītis stops the drain and points to chests. Spīdola waits in a witch circle by Burtnieks and
+  lends him her broom, flying along beside him.
 - **Bosses:** most places have a crowned vadonis, some of them in a clearing at the centre of a
   forest labyrinth. Each region has a main boss: the Great Bear
   at Turaida, the three-headed Jods in Tērvete forest, the six-headed Jods at Kolka and Ragana the

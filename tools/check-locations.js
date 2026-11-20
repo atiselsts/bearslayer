@@ -37,7 +37,7 @@ if (per * 2 > LOCATIONS.length) fail('more than one tautumeita per two places');
 for (const def of LOCATIONS) {
   game.progress.opened = new Set(LOCATIONS.map(l => l.id));
   enterLocation(def.id);
-  const spots = [['boss', L.boss], ['spring', L.spring], ['paija', L.paija], ['sign', L.sign],
+  const spots = [['boss', L.boss], ['spring', L.spring], ['sign', L.sign],
     ...L.houses.map(h => ['house ' + h.id, { x: h.x, y: h.y + 30 }]),
     ...game.maidens.map((m, k) => ['tautumeita ' + k, m]),
     ...(L.landmark && !onIsland(L.landmark) ? [['landmark front', { x: L.landmark.x, y: L.landmark.y + 40 }]] : []),
@@ -58,6 +58,36 @@ for (const def of LOCATIONS) {
     if (!game.items.some(it => it.slot === k)) fail(def.id + ': island gift ' + sp.id + ' missing');
   }
   if (game.maidens.length !== def.maidens) fail(def.id + ': ' + game.maidens.length + ' tautumeitas instead of ' + def.maidens);
+  // the ferry: both landings can be walked to, and the boat takes him across and back, coming over
+  // to fetch him when it's on the other side
+  if (L.ferry) {
+    const docks = [-1, 1].map(sd => ferryDock(L.ferry, sd));
+    docks.forEach((d, k) => { if (!near(d, L.reach)) fail(def.id + ': ferry landing ' + k + ' cannot be reached'); });
+    const ride = (from, to, what) => {
+      game.hero.x = from.x; game.hero.y = from.y;
+      for (let f = 0; f < 200 && (game.boat.riding || dist(game.hero.x, game.hero.y, to.x, to.y) > 1); f++) updateFerry(0.1);
+      if (dist(game.hero.x, game.hero.y, to.x, to.y) > 1) fail(def.id + ': the ferry does not ' + what);
+      game.hero.x = L.start.x; game.hero.y = L.start.y; updateFerry(0.1);
+    };
+    const s0 = game.boat.pos, home = docks[(s0 + 1) / 2], far = docks[(1 - s0) / 2];
+    ride(home, far, 'take him across');
+    ride(home, far, 'come back for him');
+    ride(far, home, 'take him back');
+  }
+  // walking up to a helper brings them along; Spīdola also lends him her broom, for as long as she
+  // stays, and it comes along to the next place with her
+  for (const hs of L.houses) {
+    game.ally = null; game.houseCd[hs.id] = 0; game.fx.broom = 0;
+    game.hero.x = hs.x; game.hero.y = hs.y + 8;
+    updateHouses(0.1);
+    if (!game.ally || game.ally.type !== hs.id) fail(def.id + ': ' + hs.id + ' does not come along');
+    else if ((hs.id === 'spidola') !== (game.fx.broom > 0)) fail(def.id + ': ' + hs.id + (game.fx.broom > 0 ? ' gives' : ' does not give') + ' a broom');
+    if (hs.id === 'spidola') {
+      enterLocation(def.id);
+      if (Math.abs(game.fx.broom - game.ally.t) > 0.01) fail(def.id + ': the broom is lost on the way with Spīdola');
+    }
+    game.ally = null; game.fx.broom = 0; game.hero.x = L.start.x; game.hero.y = L.start.y;
+  }
   // maldugunis float only over the swamps (a swamp may have none)
   {
     const wisps = game.enemies.filter(e => e.type === 'wisp');

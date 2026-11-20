@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bench</title>
+  <style>html, body { margin: 0; overflow: hidden; } canvas { display: block; }</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script src="../game.js" charset="utf-8"></script>
+<script>
+// Speed benchmark, run by tools/bench.js. At a few spots in every place (the start, the boss, the
+// landmark, the village, the ferry, helpers and bridges) it times whole frames: drawWorld and
+// drawHUD, with the canvas flushed after each so the pixel filling counts, not just the JS.
+// With ?attr=1 it also flushes around each drawing function, to show where the time goes (the
+// flushing makes these frames slower, so compare the totals without it). ?n= sets frames per spot.
+const q = new URLSearchParams(location.search), ATTR = q.get('attr') === '1', N = +(q.get('n') || 30);
+const flush = () => canvas.getContext('2d').getImageData(0, 0, 1, 1);
+const acc = {};
+if (ATTR) {
+  for (const name of ['drawGroundTiles', 'drawWater', 'drawFerryBoat', 'drawTown', 'drawSpring', 'drawGroundItem',
+    'drawChest', 'drawEnemy', 'drawEnemyLabel', 'drawMaiden', 'drawHouse', 'drawWitchCircle', 'drawLandmark', 'drawSign',
+    'drawCompanion', 'drawHero', 'drawHUD', 'drawNumber', 'drawHint', 'speech']) {
+    const f = window[name];
+    if (!f) continue;
+    window[name] = function (...a) {
+      flush();
+      const t0 = performance.now(), r = f.apply(this, a);
+      flush();
+      acc[name] = (acc[name] || 0) + performance.now() - t0;
+      return r;
+    };
+  }
+}
+setTimeout(() => {
+  startGame(false);
+  state = 'play';
+  const out = [], all = [];
+  for (const def of LOCATIONS) {
+    enterLocation(def.id);
+    game.fade = 0;
+    for (let k = 0; k < 120; k++) drawGroundTiles();   // make all the tiles first
+    const spots = [L.start, L.boss, L.landmark, L.village, L.ferry, ...L.houses, ...L.bridges].filter(Boolean);
+    const times = [];
+    for (const sp of spots) {
+      game.hero.x = sp.x; game.hero.y = sp.y + 60;
+      updateCamera(10);
+      drawWorld(); drawHUD(); flush();
+      const t0 = performance.now();
+      for (let f = 0; f < N; f++) { game.time += 1 / 60; drawWorld(); drawHUD(); flush(); }
+      times.push((performance.now() - t0) / N);
+    }
+    all.push(...times);
+    const avg = times.reduce((a, b) => a + b, 0) / times.length;
+    out.push(def.id.padEnd(12) + ' avg ' + avg.toFixed(1) + ' ms  max ' + Math.max(...times).toFixed(1));
+  }
+  out.push('ALL avg ' + (all.reduce((a, b) => a + b, 0) / all.length).toFixed(2) + ' ms  DPR ' + DPR +
+    ' canvas ' + canvas.width + 'x' + canvas.height);
+  if (ATTR) {
+    for (const [k, v] of Object.entries(acc).sort((a, b) => b[1] - a[1])) out.push(k.padEnd(18) + (v / all.length / N).toFixed(2) + ' ms/frame');
+  }
+  const pre = document.createElement('pre');
+  pre.id = 'out';
+  pre.textContent = out.join('\n');
+  document.body.innerHTML = '';
+  document.body.appendChild(pre);
+  state = 'title';
+}, 500);
+</script>
+</body>
+</html>
